@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Costo Stampa 3D · 3D Print Cost</title>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1c1e21; --muted: #65676b;
+    --accent: #00893a; --accent2: #0a66c2; --border: #dcdfe4; --warn: #b45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417; --card: #1d2025; --text: #e8eaed; --muted: #9aa0a6;
+      --accent: #2ecc71; --accent2: #4da3ff; --border: #33373d; --warn: #fbbf24;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  .sub { color: var(--muted); margin-bottom: 24px; }
+  .lang { display: flex; gap: 4px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+  .lang button { border: none; background: var(--card); color: var(--muted); padding: 6px 12px; cursor: pointer; font-size: .85rem; }
+  .lang button.on { background: var(--accent2); color: #fff; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+  .card h2 { font-size: 1.05rem; margin-bottom: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
+  input, select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: .95rem; }
+  input:focus, select:focus { outline: 2px solid var(--accent2); border-color: transparent; }
+  .drop { border: 2px dashed var(--border); border-radius: 12px; padding: 36px; text-align: center; color: var(--muted); cursor: pointer; transition: .15s; }
+  .drop.over { border-color: var(--accent); color: var(--accent); background: rgba(46, 204, 113, .06); }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border); vertical-align: -2px; margin-right: 6px; }
+  .tot { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 6px; }
+  .tot .box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .tot .box .v { font-size: 1.35rem; font-weight: 700; }
+  .tot .box .k { font-size: .78rem; color: var(--muted); }
+  .warn { color: var(--warn); font-size: .85rem; margin-top: 8px; }
+  .hint { color: var(--muted); font-size: .8rem; margin-top: 8px; }
+  .del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
+  .del:hover { color: #e74c3c; }
+  .empty { color: var(--muted); text-align: center; padding: 16px; }
+  @media (max-width: 640px) { .wrap { padding: 16px 10px 48px; } th, td { padding: 6px; } }
+  .tbl-scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 data-i18n="title"></h1>
+      <p class="sub" data-i18n-html="subtitle"></p>
+    </div>
+    <div class="lang">
+      <button id="langIt">IT</button>
+      <button id="langEn">EN</button>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2 data-i18n="s1"></h2>
+    <div class="grid">
+      <div>
+        <label for="printer" data-i18n="printer"></label>
+        <select id="printer"></select>
+      </div>
+      <div>
+        <label for="watts" data-i18n="watts"></label>
+        <input type="number" id="watts" step="5" min="10">
+      </div>
+      <div>
+        <label for="kwh" data-i18n="kwh"></label>
+        <input type="number" id="kwh" step="0.001" min="0" value="0.209">
+      </div>
+      <div>
+        <label for="priceBasic" data-i18n="priceBasic"></label>
+        <input type="number" id="priceBasic" step="0.5" min="0" value="19.99">
+      </div>
+      <div>
+        <label for="priceMatte" data-i18n="priceMatte"></label>
+        <input type="number" id="priceMatte" step="0.5" min="0" value="19.99">
+      </div>
+      <div>
+        <label for="priceOther" data-i18n="priceOther"></label>
+        <input type="number" id="priceOther" step="0.5" min="0" value="24.99">
+      </div>
+    </div>
+    <p class="hint" data-i18n="hint1"></p>
+  </div>
+
+  <div class="card">
+    <h2 data-i18n="s2"></h2>
+    <div class="drop" id="drop"><span data-i18n="dropText"></span><input type="file" id="fileInput" accept=".3mf" multiple hidden></div>
+    <div id="fileWarn"></div>
+    <div class="tbl-scroll" style="margin-top:14px">
+      <table id="filesTable" hidden>
+        <thead><tr><th data-i18n="thFile"></th><th class="num" data-i18n="thPlates"></th><th class="num" data-i18n="thTime"></th><th class="num" data-i18n="thWeight"></th><th class="num" data-i18n="thEnergyCost"></th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="empty" id="filesEmpty" data-i18n="noFiles"></p>
+  </div>
+
+  <div class="card" id="colorsCard" hidden>
+    <h2 data-i18n="s3"></h2>
+    <div class="tbl-scroll">
+      <table id="colorsTable">
+        <thead><tr><th data-i18n="thColor"></th><th data-i18n="thMaterial"></th><th class="num" data-i18n="thGrams"></th><th class="num" data-i18n="thSpools"></th><th class="num" data-i18n="thSpoolCost"></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="hint" data-i18n="hint2"></p>
+  </div>
+
+  <div class="card" id="totalsCard" hidden>
+    <h2 data-i18n="totals"></h2>
+    <div class="tot">
+      <div class="box"><div class="v" id="tTime">—</div><div class="k" data-i18n="kTime"></div></div>
+      <div class="box"><div class="v" id="tWeight">—</div><div class="k" data-i18n="kWeight"></div></div>
+      <div class="box"><div class="v" id="tEnergy">—</div><div class="k" data-i18n="kEnergy"></div></div>
+      <div class="box"><div class="v" id="tEnergyCost">—</div><div class="k" data-i18n="kEnergyCost"></div></div>
+      <div class="box"><div class="v" id="tSpoolCost">—</div><div class="k" data-i18n="kSpoolCost"></div></div>
+      <div class="box"><div class="v" id="tAll">—</div><div class="k" data-i18n="kAll"></div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const I18N = {
+  it: {
+    title: "Costo Stampa 3D",
+    subtitle: "Trascina i tuoi file <b>.3mf già slicati</b> (esportati da Bambu Studio / OrcaSlicer): tempi, materiale per colore e costo corrente, tutto in automatico.",
+    s1: "1 · Stampante e costi",
+    printer: "Stampante (precompila i campi)",
+    watts: "Potenza media in stampa (W)",
+    kwh: "Costo energia (€/kWh)",
+    priceBasic: "Prezzo bobina PLA Basic 1 kg (€)",
+    priceMatte: "Prezzo bobina PLA Matte 1 kg (€)",
+    priceOther: "Prezzo bobina altro materiale (€)",
+    hint1: "La potenza media è indicativa (stampa PLA a regime): correggila se hai una misura reale con presa smart. Il €/kWh da usare è quello marginale della bolletta: componenti a consumo (energia + rete + oneri + accisa) + IVA.",
+    s2: "2 · File 3MF",
+    dropText: "Trascina qui i file .3mf slicati (o clicca per sceglierli)",
+    thFile: "File", thPlates: "Piatti", thTime: "Tempo", thWeight: "Peso (g)", thEnergyCost: "Corrente (€)",
+    noFiles: "Nessun file caricato.",
+    s3: "3 · Materiale per colore",
+    thColor: "Colore", thMaterial: "Materiale", thGrams: "Grammi", thSpools: "Bobine 1 kg", thSpoolCost: "Costo bobine (€)",
+    hint2: "Le bobine sono calcolate per eccesso (non si compra mezza bobina). Lo spurgo dei cambi colore è già nei grammi dello slicer: tieni comunque un ~10% di riserva.",
+    totals: "Totali",
+    kTime: "Tempo totale di stampa", kWeight: "Materiale totale", kEnergy: "Energia stimata",
+    kEnergyCost: "Costo corrente", kSpoolCost: "Costo bobine da comprare", kAll: "Totale complessivo",
+    otherPrinter: "Altra stampante…",
+    errNot3mf: "non è un .3mf", errDup: "già caricato",
+    errNoSlice: "slice_info.config mancante: non è un progetto Bambu/Orca.",
+    errNotSliced: "non slicato — aprilo in Bambu Studio, slica tutti i piatti ed esporta di nuovo il 3mf.",
+    locale: "it-IT",
+  },
+  en: {
+    title: "3D Print Cost",
+    subtitle: "Drop your <b>already-sliced .3mf</b> files (exported from Bambu Studio / OrcaSlicer): print time, filament per color and electricity cost, all automatic.",
+    s1: "1 · Printer & costs",
+    printer: "Printer (pre-fills the fields)",
+    watts: "Average printing power (W)",
+    kwh: "Energy cost (€/kWh)",
+    priceBasic: "PLA Basic 1 kg spool price (€)",
+    priceMatte: "PLA Matte 1 kg spool price (€)",
+    priceOther: "Other material spool price (€)",
+    hint1: "Average power is indicative (steady-state PLA printing): adjust it if you have a real measurement from a smart plug. Use your marginal €/kWh from the bill: consumption-based components (energy + grid + levies + excise) + VAT.",
+    s2: "2 · 3MF files",
+    dropText: "Drop sliced .3mf files here (or click to choose)",
+    thFile: "File", thPlates: "Plates", thTime: "Time", thWeight: "Weight (g)", thEnergyCost: "Energy (€)",
+    noFiles: "No files loaded.",
+    s3: "3 · Filament per color",
+    thColor: "Color", thMaterial: "Material", thGrams: "Grams", thSpools: "1 kg spools", thSpoolCost: "Spool cost (€)",
+    hint2: "Spools are rounded up (you can't buy half a spool). Color-change purge is already in the slicer's grams: still keep ~10% headroom.",
+    totals: "Totals",
+    kTime: "Total print time", kWeight: "Total material", kEnergy: "Estimated energy",
+    kEnergyCost: "Electricity cost", kSpoolCost: "Spools to buy", kAll: "Grand total",
+    otherPrinter: "Other printer…",
+    errNot3mf: "not a .3mf file", errDup: "already loaded",
+    errNoSlice: "slice_info.config missing: not a Bambu/Orca project.",
+    errNotSliced: "not sliced — open it in Bambu Studio, slice all plates and export the 3mf again.",
+    locale: "en-US",
+  },
+};
+let lang = localStorage.getItem("lang") || (navigator.language || "it").slice(0, 2);
+if (!I18N[lang]) lang = "it";
+const T = () => I18N[lang];
+
+// Potenza media indicativa in stampa PLA (W), modificabile dopo la selezione.
+const PRINTERS = [
+  { id: "h2c",    name: "Bambu Lab H2C",     watts: 180 },
+  { id: "h2d",    name: "Bambu Lab H2D",     watts: 180 },
+  { id: "h2dpro", name: "Bambu Lab H2D Pro", watts: 200 },
+  { id: "h2s",    name: "Bambu Lab H2S",     watts: 160 },
+  { id: "x1c",    name: "Bambu Lab X1C",     watts: 110 },
+  { id: "x1e",    name: "Bambu Lab X1E",     watts: 130 },
+  { id: "p1s",    name: "Bambu Lab P1S",     watts: 105 },
+  { id: "p1p",    name: "Bambu Lab P1P",     watts: 95  },
+  { id: "p2s",    name: "Bambu Lab P2S",     watts: 110 },
+  { id: "a1",     name: "Bambu Lab A1",      watts: 80  },
+  { id: "a1mini", name: "Bambu Lab A1 mini", watts: 60  },
+  { id: "altro",  name: null,                watts: 120 }, // etichetta localizzata
+];
+
+// Palette ufficiale Bambu: hex → nome commerciale bobina.
+const BAMBU_COLORS = {
+  "PLA Basic": { "#FFFFFF": "Jade White", "#000000": "Black", "#C12E1F": "Red", "#0A2989": "Blue",
+    "#8E9089": "Gray", "#00AE42": "Bambu Green", "#3F8E43": "Mistletoe Green", "#0086D6": "Cyan",
+    "#FEC600": "Sunflower Yellow", "#482960": "Indigo Purple", "#6F5034": "Cocoa Brown",
+    "#F5547C": "Hot Pink", "#FF9016": "Pumpkin Orange", "#E4BD68": "Gold", "#5E43B7": "Purple",
+    "#0056B8": "Cobalt Blue", "#F55A74": "Pink", "#D3B7A7": "Beige" },
+  "PLA Matte": { "#FFFFFF": "Ivory White", "#CBC6B8": "Bone White", "#E8DBB7": "Desert Tan",
+    "#D3B7A7": "Latte Brown", "#AE835B": "Caramel", "#B15533": "Terracotta", "#7D6556": "Dark Brown",
+    "#4D3324": "Dark Chocolate", "#AE96D4": "Lilac Purple", "#E8AFCF": "Sakura Pink",
+    "#F99963": "Mandarin Orange", "#F7D959": "Lemon Yellow", "#950051": "Plum", "#DE4343": "Scarlet Red",
+    "#BB3D43": "Dark Red", "#68724D": "Dark Green", "#61C680": "Grass Green", "#C2E189": "Apple Green",
+    "#A3D8E1": "Ice Blue", "#56B7E6": "Sky Blue", "#0078BF": "Marine Blue", "#042F56": "Dark Blue",
+    "#9B9EA0": "Ash Gray", "#757575": "Nardo Gray", "#000000": "Charcoal" },
+};
+
+const files = []; // { name, plates, seconds, grams, colors: [{color,type,grams}] }
+const $ = (id) => document.getElementById(id);
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = T()[el.dataset.i18n] || "");
+  document.querySelectorAll("[data-i18n-html]").forEach(el => el.innerHTML = T()[el.dataset.i18nHtml] || "");
+  $("langIt").classList.toggle("on", lang === "it");
+  $("langEn").classList.toggle("on", lang === "en");
+  const sel = $("printer");
+  const other = sel.querySelector('option[value="altro"]');
+  if (other) other.textContent = T().otherPrinter;
+  localStorage.setItem("lang", lang);
+  render();
+}
+
+function initPrinters() {
+  const sel = $("printer");
+  PRINTERS.forEach(p => {
+    const o = document.createElement("option");
+    o.value = p.id; o.textContent = p.name || "";
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change", () => {
+    const p = PRINTERS.find(x => x.id === sel.value);
+    if (p) $("watts").value = p.watts;
+    render();
+  });
+  sel.value = "h2c";
+  $("watts").value = PRINTERS[0].watts;
+}
+
+function hms(sec) {
+  const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
+}
+function eur(v) { return v.toLocaleString(T().locale, { style: "currency", currency: "EUR" }); }
+
+function matType(settingsId, fallback) {
+  const s = (settingsId || fallback || "").toLowerCase();
+  if (s.includes("matte")) return "PLA Matte";
+  if (s.includes("pla")) return "PLA Basic";
+  return fallback || "—";
+}
+
+async function parse3mf(file) {
+  const zip = await JSZip.loadAsync(file);
+  const sliceEntry = zip.file("Metadata/slice_info.config");
+  if (!sliceEntry) throw new Error(T().errNoSlice);
+  const xmlText = await sliceEntry.async("string");
+  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+  const plates = [...xml.querySelectorAll("plate")].filter(p => p.querySelector('metadata[key="prediction"]'));
+  if (plates.length === 0) throw new Error(T().errNotSliced);
+
+  let slotTypes = {};
+  const ps = zip.file("Metadata/project_settings.config");
+  if (ps) {
+    try {
+      const cfg = JSON.parse(await ps.async("string"));
+      (cfg.filament_settings_id || []).forEach((s, i) => slotTypes[i + 1] = matType(s));
+    } catch (e) { /* opzionale */ }
+  }
+
+  let seconds = 0, grams = 0;
+  const colors = {};
+  plates.forEach(p => {
+    seconds += parseFloat(p.querySelector('metadata[key="prediction"]').getAttribute("value")) || 0;
+    grams += parseFloat(p.querySelector('metadata[key="weight"]')?.getAttribute("value")) || 0;
+    p.querySelectorAll("filament").forEach(f => {
+      const color = (f.getAttribute("color") || "#888888").toUpperCase();
+      const slot = parseInt(f.getAttribute("id"), 10);
+      const type = slotTypes[slot] || matType(null, f.getAttribute("type"));
+      const g = parseFloat(f.getAttribute("used_g")) || 0;
+      const key = color + "|" + type;
+      colors[key] = (colors[key] || 0) + g;
+    });
+  });
+  return {
+    name: file.name, plates: plates.length, seconds, grams,
+    colors: Object.entries(colors).map(([k, g]) => {
+      const [color, type] = k.split("|");
+      return { color, type, grams: g };
+    }),
+  };
+}
+
+async function addFiles(list) {
+  const warns = [];
+  for (const f of list) {
+    if (!f.name.toLowerCase().endsWith(".3mf")) { warns.push(`${f.name}: ${T().errNot3mf}`); continue; }
+    if (files.some(x => x.name === f.name)) { warns.push(`${f.name}: ${T().errDup}`); continue; }
+    try { files.push(await parse3mf(f)); }
+    catch (e) { warns.push(`${f.name}: ${e.message}`); }
+  }
+  $("fileWarn").innerHTML = warns.map(w => `<p class="warn">⚠ ${w}</p>`).join("");
+  render();
+}
+
+function spoolName(color, type) {
+  return (BAMBU_COLORS[type] || {})[color] || color;
+}
+
+function render() {
+  const tbody = $("filesTable").querySelector("tbody");
+  tbody.innerHTML = "";
+  const watts = parseFloat($("watts").value) || 0;
+  const kwh = parseFloat($("kwh").value) || 0;
+  const prices = {
+    "PLA Basic": parseFloat($("priceBasic").value) || 0,
+    "PLA Matte": parseFloat($("priceMatte").value) || 0,
+  };
+  const priceOther = parseFloat($("priceOther").value) || 0;
+
+  let totSec = 0, totG = 0;
+  files.forEach((f, i) => {
+    totSec += f.seconds; totG += f.grams;
+    const cost = f.seconds / 3600 * watts / 1000 * kwh;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${f.name}</td><td class="num">${f.plates}</td><td class="num">${hms(f.seconds)}</td>
+      <td class="num">${f.grams.toFixed(0)}</td><td class="num">${eur(cost)}</td>
+      <td><button class="del" data-i="${i}" title="✕">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll(".del").forEach(b => b.addEventListener("click", () => { files.splice(+b.dataset.i, 1); render(); }));
+  $("filesTable").hidden = files.length === 0;
+  $("filesEmpty").hidden = files.length > 0;
+
+  const agg = {};
+  files.forEach(f => f.colors.forEach(c => {
+    const k = c.color + "|" + c.type;
+    agg[k] = (agg[k] || 0) + c.grams;
+  }));
+  const rows = Object.entries(agg).map(([k, g]) => {
+    const [color, type] = k.split("|");
+    return { color, type, grams: g, spools: Math.ceil(g / 1000) };
+  }).sort((a, b) => b.grams - a.grams);
+
+  const ctb = $("colorsTable").querySelector("tbody");
+  ctb.innerHTML = "";
+  let spoolCost = 0;
+  rows.forEach(r => {
+    const unit = prices[r.type] ?? priceOther;
+    const c = r.spools * unit;
+    spoolCost += c;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td><span class="sw" style="background:${r.color}"></span>${spoolName(r.color, r.type)}</td>
+      <td>${r.type}</td><td class="num">${r.grams.toFixed(0)}</td><td class="num">${r.spools}</td><td class="num">${eur(c)}</td>`;
+    ctb.appendChild(tr);
+  });
+  $("colorsCard").hidden = rows.length === 0;
+
+  const kWh = totSec / 3600 * watts / 1000;
+  const eCost = kWh * kwh;
+  $("tTime").textContent = hms(totSec);
+  $("tWeight").textContent = (totG / 1000).toFixed(2) + " kg";
+  $("tEnergy").textContent = kWh.toFixed(1) + " kWh";
+  $("tEnergyCost").textContent = eur(eCost);
+  $("tSpoolCost").textContent = eur(spoolCost);
+  $("tAll").textContent = eur(eCost + spoolCost);
+  $("totalsCard").hidden = files.length === 0;
+}
+
+function initDrop() {
+  const drop = $("drop"), input = $("fileInput");
+  drop.addEventListener("click", () => input.click());
+  input.addEventListener("change", () => { addFiles([...input.files]); input.value = ""; });
+  ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", e => addFiles([...e.dataTransfer.files]));
+}
+
+$("langIt").addEventListener("click", () => { lang = "it"; applyLang(); });
+$("langEn").addEventListener("click", () => { lang = "en"; applyLang(); });
+["watts", "kwh", "priceBasic", "priceMatte", "priceOther"].forEach(id => $(id).addEventListener("input", render));
+initPrinters();
+initDrop();
+applyLang();
+</script>
+</body>
+</html>
