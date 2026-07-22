@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<title>Costo Stampa 3D</title>
+</head>
+<body>
+<div class="dragbar"></div>
+<div class="layout">
+  <aside>
+    <div class="brand">Costo <i>Stampa</i> 3D</div>
+    <nav id="nav">
+      <a data-sec="dash" class="on"><span>▦</span> Panoramica</a>
+      <a data-sec="files"><span>📄</span> File & Slicing</a>
+      <a data-sec="colors"><span>🎨</span> Colori & Bobine</a>
+      <a data-sec="plates"><span>🧩</span> Ottimizza piatti</a>
+      <a data-sec="setup"><span>⚙️</span> Costi & Setup</a>
+    </nav>
+    <div class="sidefoot">Bambu Lab H2C<br><span id="footWatts">180 W · 0,209 €/kWh</span></div>
+  </aside>
+
+  <main id="main">
+    <!-- PANORAMICA -->
+    <section id="sec-dash">
+      <h1>Panoramica</h1>
+      <div class="sub" id="dashSub">Trascina i tuoi file .3mf per iniziare</div>
+      <div class="bento">
+        <div class="cell"><div class="k">Tempo di stampa</div><div class="v" id="tTime">—</div><div class="d" id="tTimeD"></div></div>
+        <div class="cell"><div class="k">Materiale</div><div class="v" id="tGrams">—</div><div class="d" id="tColorsD"></div></div>
+        <div class="cell"><div class="k">Bobine da comprare</div><div class="v" id="tSpools">—</div><div class="d">refill 1 kg</div></div>
+        <div class="cell"><div class="k">Filamento</div><div class="v" id="tFilCost">—</div><div class="d" id="tTierD"></div></div>
+        <div class="cell"><div class="k">Corrente</div><div class="v" id="tEnCost">—</div><div class="d" id="tEnD"></div></div>
+        <div class="cell big">
+          <div class="k">Materiale per colore</div>
+          <div class="donut-wrap"><div class="donut" id="donut"></div><div class="donut-hole" id="donutTot"></div></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="cell wide">
+          <div class="k">Ore per file</div>
+          <div class="spark" id="spark"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FILE -->
+    <section id="sec-files" hidden>
+      <h1>File & Slicing</h1>
+      <div class="sub">3mf già slicati vengono letti al volo; quelli non slicati li slico con Bambu Studio (profilo H2C 0.4 · 0.20 mm).</div>
+      <div class="drop" id="drop">Trascina qui i <b>.3mf</b> — o <u id="pick">scegli i file</u></div>
+      <div id="fileWarn"></div>
+      <div class="panel">
+        <table id="filesTable">
+          <thead><tr><th>File</th><th class="n">Piatti</th><th class="n">Tempo</th><th class="n">Grammi</th><th class="n">Corrente</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty" id="filesEmpty">Nessun file caricato.</div>
+      </div>
+    </section>
+
+    <!-- COLORI -->
+    <section id="sec-colors" hidden>
+      <h1>Colori & Bobine</h1>
+      <div class="sub">Prezzo per bobina calcolato con gli sconti quantità dello store Bambu (−35% da 4, −45% da 6, −50% da 10 pezzi totali).</div>
+      <div class="panel">
+        <table id="colorsTable">
+          <thead><tr><th>Bobina</th><th class="n">Grammi</th><th class="n">Bobine</th><th class="n">€/cad</th><th class="n">Totale</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="empty" id="colorsEmpty">Carica dei file per vedere i colori.</div>
+      </div>
+    </section>
+
+    <!-- PIATTI -->
+    <section id="sec-plates" hidden>
+      <h1>Ottimizza piatti</h1>
+      <div class="sub">Piatti “leggeri” dello stesso colore che puoi accorpare sul piatto H2C (330×320): meno riscaldamenti, meno svuotamenti manuali.</div>
+      <div class="panel" id="mergeList"><div class="empty">Carica dei file per i consigli.</div></div>
+    </section>
+
+    <!-- SETUP -->
+    <section id="sec-setup" hidden>
+      <h1>Costi & Setup</h1>
+      <div class="sub">I valori si applicano subito a tutti i calcoli.</div>
+      <div class="grid2">
+        <div class="panel">
+          <div class="field"><label>Stampante (precompila i watt)</label><select id="printer"></select></div>
+          <div class="field"><label>Potenza media in stampa (W)</label><input type="number" id="watts" step="5"></div>
+          <div class="field"><label>Energia — costo marginale (€/kWh)</label><input type="number" id="kwh" step="0.001" value="0.209"></div>
+        </div>
+        <div class="panel">
+          <div class="field"><label>Listino bobina 1 kg (€)</label><input type="number" id="msrp" step="0.5" value="22.99"></div>
+          <div class="field"><label>Sconti quantità store</label>
+            <div class="tierbox">−35% da 4 · −45% da 6 · <b>−50% da 10</b> (auto sul totale bobine)</div>
+          </div>
+          <div class="field"><label>Margine scorta consigliato</label>
+            <div class="tierbox">+1 bobina se il colore resta sotto 150 g di margine</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>

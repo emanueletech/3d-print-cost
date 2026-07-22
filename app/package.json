@@ -1,0 +1,16 @@
+{
+  "name": "costo-stampa-3d",
+  "version": "1.0.0",
+  "description": "Calcolo tempi, materiali e costi di stampa 3D",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [],
+  "author": "Emanuele",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^43.2.0"
+  }
+}
