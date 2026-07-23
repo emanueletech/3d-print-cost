@@ -5,402 +5,335 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Costo Stampa 3D · 3D Print Cost</title>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #f5f6f8; --card: #ffffff; --text: #1c1e21; --muted: #65676b;
-    --accent: #00893a; --accent2: #0a66c2; --border: #dcdfe4; --warn: #b45309;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #121417; --card: #1d2025; --text: #e8eaed; --muted: #9aa0a6;
-      --accent: #2ecc71; --accent2: #4da3ff; --border: #33373d; --warn: #fbbf24;
-    }
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
-  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-  h1 { font-size: 1.6rem; margin-bottom: 4px; }
-  .sub { color: var(--muted); margin-bottom: 24px; }
-  .lang { display: flex; gap: 4px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex-shrink: 0; }
-  .lang button { border: none; background: var(--card); color: var(--muted); padding: 6px 12px; cursor: pointer; font-size: .85rem; }
-  .lang button.on { background: var(--accent2); color: #fff; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-  .card h2 { font-size: 1.05rem; margin-bottom: 14px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
-  label { display: block; font-size: .8rem; color: var(--muted); margin-bottom: 4px; }
-  input, select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: .95rem; }
-  input:focus, select:focus { outline: 2px solid var(--accent2); border-color: transparent; }
-  .drop { border: 2px dashed var(--border); border-radius: 12px; padding: 36px; text-align: center; color: var(--muted); cursor: pointer; transition: .15s; }
-  .drop.over { border-color: var(--accent); color: var(--accent); background: rgba(46, 204, 113, .06); }
-  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
-  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .03em; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-  .sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border); vertical-align: -2px; margin-right: 6px; }
-  .tot { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-top: 6px; }
-  .tot .box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-  .tot .box .v { font-size: 1.35rem; font-weight: 700; }
-  .tot .box .k { font-size: .78rem; color: var(--muted); }
-  .warn { color: var(--warn); font-size: .85rem; margin-top: 8px; }
-  .hint { color: var(--muted); font-size: .8rem; margin-top: 8px; }
-  .del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; }
-  .del:hover { color: #e74c3c; }
-  .empty { color: var(--muted); text-align: center; padding: 16px; }
-  @media (max-width: 640px) { .wrap { padding: 16px 10px 48px; } th, td { padding: 6px; } }
-  .tbl-scroll { overflow-x: auto; }
+:root {
+  --tx:#10141f; --mut:#5c6474; --line:rgba(255,255,255,.6);
+  --glass:rgba(255,255,255,.46); --glass2:rgba(255,255,255,.64);
+  --acc:#0a84ff; --green:#2c9e4b; --amber:#c77800; --red:#d64533;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --tx:#f0f2f8; --mut:#9aa2b5; --line:rgba(255,255,255,.12);
+    --glass:rgba(30,34,48,.5); --glass2:rgba(40,46,64,.62);
+    --acc:#409cff; --green:#3fd873; --amber:#ffc53d; }
+  body { background-color:#0d1017; }
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font:14.5px/1.5 'Instrument Sans',-apple-system,sans-serif; color:var(--tx);
+  background-color:#e9edf4; min-height:100vh;
+  background-image:
+    radial-gradient(900px 500px at 5% -10%, rgba(255,176,130,.25), transparent 55%),
+    radial-gradient(1000px 600px at 105% 5%, rgba(120,190,255,.25), transparent 55%),
+    radial-gradient(900px 600px at 50% 115%, rgba(255,170,210,.2), transparent 55%);
+  background-attachment:fixed;
+}
+.layout { display:grid; grid-template-columns:216px 1fr; min-height:100vh; max-width:1280px; margin:0 auto; }
+aside { padding:26px 12px 16px; border-right:1px solid rgba(120,130,160,.14); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; }
+.brand { font:400 21px 'Instrument Serif',serif; padding:0 12px 16px; }
+.brand i { color:var(--acc); }
+.lang { display:flex; gap:4px; margin:0 12px 14px; }
+.lang button { flex:1; border:none; border-radius:9px; padding:6px 0; font:600 12px 'Instrument Sans'; cursor:pointer; background:var(--glass); color:var(--mut); box-shadow:inset 0 0 0 .5px var(--line); }
+.lang button.on { background:var(--acc); color:#fff; }
+nav a { display:flex; align-items:center; gap:10px; padding:9px 13px; border-radius:11px; margin-bottom:2px; color:var(--tx); font-weight:500; font-size:13.5px; cursor:pointer; }
+nav a span { width:20px; text-align:center; font-size:13px; }
+nav a.on { background:var(--glass2); box-shadow:0 1px 8px -3px rgba(20,30,60,.3), inset 0 0 0 .5px var(--line); }
+nav a:not(.on):hover { background:rgba(255,255,255,.2); }
+.sidefoot { margin-top:auto; padding:12px; font-size:11.5px; color:var(--mut); line-height:1.6; }
+main { padding:30px 30px 50px; }
+section { max-width:990px; }
+h1 { font:400 32px 'Instrument Serif',serif; letter-spacing:-.3px; }
+.sub { color:var(--mut); font-size:13px; margin:3px 0 20px; }
+.bento { display:grid; grid-template-columns:repeat(6,1fr); gap:13px; }
+.cell { grid-column:span 2; background:var(--glass); border-radius:18px; padding:16px 18px;
+  box-shadow:0 8px 30px -16px rgba(20,30,70,.35), inset 0 0 0 .5px var(--line); backdrop-filter:blur(24px) saturate(1.5); }
+.cell.big, .cell.wide { grid-column:span 3; grid-row:span 2; }
+.k { font-size:10.5px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--mut); }
+.v { font:400 34px 'Instrument Serif',serif; margin-top:2px; }
+.v small { font-size:17px; color:var(--mut); }
+.d { font-size:12px; color:var(--green); font-weight:600; min-height:16px; }
+.donut-wrap { position:relative; width:150px; height:150px; margin:14px auto 10px; }
+.donut { width:100%; height:100%; border-radius:50%; -webkit-mask:radial-gradient(circle, transparent 46px, #000 47px); mask:radial-gradient(circle, transparent 46px, #000 47px); background:rgba(120,130,160,.15); }
+.donut-hole { position:absolute; inset:0; display:grid; place-items:center; font:400 20px 'Instrument Serif',serif; }
+.legend { font-size:11px; color:var(--mut); display:flex; flex-wrap:wrap; gap:4px 12px; justify-content:center; }
+.legend i { width:9px; height:9px; border-radius:3px; display:inline-block; margin-right:4px; }
+.spark { display:flex; align-items:flex-end; gap:5px; height:130px; padding-top:14px; }
+.spark .bar { flex:1; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg,var(--acc),rgba(10,132,255,.25)); position:relative; min-height:4px; }
+.spark .bar em { position:absolute; top:-16px; left:50%; transform:translateX(-50%); font:600 9px 'Instrument Sans'; color:var(--mut); font-style:normal; }
+.drop { border:1.5px dashed rgba(10,132,255,.5); background:rgba(10,132,255,.06); border-radius:15px; text-align:center; color:var(--mut); padding:30px; font-size:14px; margin-bottom:16px; transition:.15s; cursor:pointer; }
+.drop.over { background:rgba(10,132,255,.14); border-color:var(--acc); color:var(--acc); }
+.drop b { color:var(--acc); }
+.panel { background:var(--glass); border-radius:16px; padding:8px 14px; box-shadow:0 8px 30px -16px rgba(20,30,70,.3), inset 0 0 0 .5px var(--line); backdrop-filter:blur(24px) saturate(1.5); }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+th { text-align:left; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--mut); padding:10px; font-weight:600; }
+td { padding:9px 10px; border-top:1px solid rgba(120,130,160,.12); }
+td.n, th.n { text-align:right; font-variant-numeric:tabular-nums; }
+.sw { width:14px; height:14px; border-radius:4.5px; display:inline-block; margin-right:9px; vertical-align:-2px; box-shadow:inset 0 0 0 .5px rgba(0,0,0,.18); }
+.empty { color:var(--mut); text-align:center; padding:18px; font-size:13px; }
+.badge { font-size:10.5px; font-weight:600; border-radius:20px; padding:3px 10px; background:rgba(44,158,75,.14); color:var(--green); }
+.iconbtn { background:none; border:none; color:var(--mut); cursor:pointer; font-size:14px; }
+.iconbtn:hover { color:var(--red); }
+.warn { color:var(--amber); font-size:12.5px; padding:6px 2px; }
+.merge { display:flex; align-items:center; gap:8px; font-size:12.5px; padding:11px 6px; border-top:1px solid rgba(120,130,160,.12); flex-wrap:wrap; }
+.merge:first-child { border:0; }
+.chip { background:var(--glass2); border-radius:8px; padding:3px 10px; font-weight:600; font-size:11.5px; box-shadow:inset 0 0 0 .5px var(--line); }
+.chip .sw { width:10px; height:10px; margin-right:6px; }
+.gain { margin-left:auto; color:var(--green); font-weight:700; font-size:12px; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:start; }
+.grid2 .panel { padding:18px; }
+.field { margin-bottom:14px; }
+.field label { display:block; font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:var(--mut); font-weight:600; margin-bottom:6px; }
+.field input, .field select { width:100%; background:var(--glass2); border:none; border-radius:10px; box-shadow:inset 0 0 0 .5px var(--line); padding:10px 12px; font:500 14px 'Instrument Sans'; color:var(--tx); }
+.tierbox { background:var(--glass2); border-radius:10px; padding:10px 12px; font-size:12.5px; color:var(--mut); box-shadow:inset 0 0 0 .5px var(--line); }
+@media (max-width:860px) { .layout { grid-template-columns:1fr; } aside { position:static; height:auto; flex-direction:row; align-items:center; gap:8px; overflow-x:auto; } nav { display:flex; } .sidefoot { display:none; } .cell, .cell.big, .cell.wide { grid-column:span 6; } .grid2 { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <h1 data-i18n="title"></h1>
-      <p class="sub" data-i18n-html="subtitle"></p>
-    </div>
-    <div class="lang">
-      <button id="langIt">IT</button>
-      <button id="langEn">EN</button>
-    </div>
-  </header>
-
-  <div class="card">
-    <h2 data-i18n="s1"></h2>
-    <div class="grid">
-      <div>
-        <label for="printer" data-i18n="printer"></label>
-        <select id="printer"></select>
+<div class="layout">
+  <aside>
+    <div class="brand" data-i18n-html="brand"></div>
+    <div class="lang"><button id="langIt">IT</button><button id="langEn">EN</button></div>
+    <nav id="nav">
+      <a data-sec="dash" class="on"><span>▦</span> <b data-i18n="nDash"></b></a>
+      <a data-sec="files"><span>📄</span> <b data-i18n="nFiles"></b></a>
+      <a data-sec="colors"><span>🎨</span> <b data-i18n="nColors"></b></a>
+      <a data-sec="plates"><span>🧩</span> <b data-i18n="nPlates"></b></a>
+      <a data-sec="setup"><span>⚙️</span> <b data-i18n="nSetup"></b></a>
+    </nav>
+    <div class="sidefoot" id="footInfo"></div>
+  </aside>
+  <main>
+    <section id="sec-dash">
+      <h1 data-i18n="tDash"></h1>
+      <div class="sub" id="dashSub"></div>
+      <div class="bento">
+        <div class="cell"><div class="k" data-i18n="kTime"></div><div class="v" id="tTime">—</div><div class="d" id="tTimeD"></div></div>
+        <div class="cell"><div class="k" data-i18n="kMat"></div><div class="v" id="tGrams">—</div><div class="d" id="tColorsD"></div></div>
+        <div class="cell"><div class="k" data-i18n="kSpools"></div><div class="v" id="tSpools">—</div><div class="d" data-i18n="kRefill"></div></div>
+        <div class="cell"><div class="k" data-i18n="kFil"></div><div class="v" id="tFilCost">—</div><div class="d" id="tTierD"></div></div>
+        <div class="cell"><div class="k" data-i18n="kEnergy"></div><div class="v" id="tEnCost">—</div><div class="d" id="tEnD"></div></div>
+        <div class="cell big"><div class="k" data-i18n="kByColor"></div>
+          <div class="donut-wrap"><div class="donut" id="donut"></div><div class="donut-hole" id="donutTot"></div></div>
+          <div class="legend" id="legend"></div>
+        </div>
+        <div class="cell wide"><div class="k" data-i18n="kHours"></div><div class="spark" id="spark"></div></div>
       </div>
-      <div>
-        <label for="watts" data-i18n="watts"></label>
-        <input type="number" id="watts" step="5" min="10">
+    </section>
+    <section id="sec-files" hidden>
+      <h1 data-i18n="tFiles"></h1>
+      <div class="sub" data-i18n="sFiles"></div>
+      <div class="drop" id="drop"><span data-i18n-html="dropTxt"></span><input type="file" id="fileInput" accept=".3mf" multiple hidden></div>
+      <div id="fileWarn"></div>
+      <div class="panel">
+        <table id="filesTable"><thead><tr><th>File</th><th class="n" data-i18n="thPlates"></th><th class="n" data-i18n="thTime"></th><th class="n" data-i18n="thGrams"></th><th class="n" data-i18n="thEnergy"></th><th></th></tr></thead><tbody></tbody></table>
+        <div class="empty" id="filesEmpty" data-i18n="noFiles"></div>
       </div>
-      <div>
-        <label for="kwh" data-i18n="kwh"></label>
-        <input type="number" id="kwh" step="0.001" min="0" value="0.209">
+    </section>
+    <section id="sec-colors" hidden>
+      <h1 data-i18n="tColors"></h1>
+      <div class="sub" data-i18n="sColors"></div>
+      <div class="panel">
+        <table id="colorsTable"><thead><tr><th data-i18n="thSpool"></th><th class="n" data-i18n="thGrams"></th><th class="n" data-i18n="thQty"></th><th class="n">€/cad</th><th class="n" data-i18n="thTot"></th></tr></thead><tbody></tbody></table>
+        <div class="empty" id="colorsEmpty" data-i18n="noColors"></div>
       </div>
-      <div>
-        <label for="priceBasic" data-i18n="priceBasic"></label>
-        <input type="number" id="priceBasic" step="0.5" min="0" value="19.99">
+    </section>
+    <section id="sec-plates" hidden>
+      <h1 data-i18n="tPlates"></h1>
+      <div class="sub" data-i18n="sPlates"></div>
+      <div class="panel" id="mergeList"><div class="empty" data-i18n="noPlates"></div></div>
+    </section>
+    <section id="sec-setup" hidden>
+      <h1 data-i18n="tSetup"></h1>
+      <div class="sub" data-i18n="sSetup"></div>
+      <div class="grid2">
+        <div class="panel">
+          <div class="field"><label data-i18n="fPrinter"></label><select id="printer"></select></div>
+          <div class="field"><label data-i18n="fWatts"></label><input type="number" id="watts" step="5"></div>
+          <div class="field"><label data-i18n="fKwh"></label><input type="number" id="kwh" step="0.001" value="0.209"></div>
+        </div>
+        <div class="panel">
+          <div class="field"><label data-i18n="fMsrp"></label><input type="number" id="msrp" step="0.5" value="22.99"></div>
+          <div class="field"><label data-i18n="fTiers"></label><div class="tierbox" data-i18n="tierTxt"></div></div>
+        </div>
       </div>
-      <div>
-        <label for="priceMatte" data-i18n="priceMatte"></label>
-        <input type="number" id="priceMatte" step="0.5" min="0" value="19.99">
-      </div>
-      <div>
-        <label for="priceOther" data-i18n="priceOther"></label>
-        <input type="number" id="priceOther" step="0.5" min="0" value="24.99">
-      </div>
-    </div>
-    <p class="hint" data-i18n="hint1"></p>
-  </div>
-
-  <div class="card">
-    <h2 data-i18n="s2"></h2>
-    <div class="drop" id="drop"><span data-i18n="dropText"></span><input type="file" id="fileInput" accept=".3mf" multiple hidden></div>
-    <div id="fileWarn"></div>
-    <div class="tbl-scroll" style="margin-top:14px">
-      <table id="filesTable" hidden>
-        <thead><tr><th data-i18n="thFile"></th><th class="num" data-i18n="thPlates"></th><th class="num" data-i18n="thTime"></th><th class="num" data-i18n="thWeight"></th><th class="num" data-i18n="thEnergyCost"></th><th></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <p class="empty" id="filesEmpty" data-i18n="noFiles"></p>
-  </div>
-
-  <div class="card" id="colorsCard" hidden>
-    <h2 data-i18n="s3"></h2>
-    <div class="tbl-scroll">
-      <table id="colorsTable">
-        <thead><tr><th data-i18n="thColor"></th><th data-i18n="thMaterial"></th><th class="num" data-i18n="thGrams"></th><th class="num" data-i18n="thSpools"></th><th class="num" data-i18n="thSpoolCost"></th></tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <p class="hint" data-i18n="hint2"></p>
-  </div>
-
-  <div class="card" id="totalsCard" hidden>
-    <h2 data-i18n="totals"></h2>
-    <div class="tot">
-      <div class="box"><div class="v" id="tTime">—</div><div class="k" data-i18n="kTime"></div></div>
-      <div class="box"><div class="v" id="tWeight">—</div><div class="k" data-i18n="kWeight"></div></div>
-      <div class="box"><div class="v" id="tEnergy">—</div><div class="k" data-i18n="kEnergy"></div></div>
-      <div class="box"><div class="v" id="tEnergyCost">—</div><div class="k" data-i18n="kEnergyCost"></div></div>
-      <div class="box"><div class="v" id="tSpoolCost">—</div><div class="k" data-i18n="kSpoolCost"></div></div>
-      <div class="box"><div class="v" id="tAll">—</div><div class="k" data-i18n="kAll"></div></div>
-    </div>
-  </div>
+    </section>
+  </main>
 </div>
-
 <script>
-const I18N = {
-  it: {
-    title: "Costo Stampa 3D",
-    subtitle: "Trascina i tuoi file <b>.3mf già slicati</b> (esportati da Bambu Studio / OrcaSlicer): tempi, materiale per colore e costo corrente, tutto in automatico.",
-    s1: "1 · Stampante e costi",
-    printer: "Stampante (precompila i campi)",
-    watts: "Potenza media in stampa (W)",
-    kwh: "Costo energia (€/kWh)",
-    priceBasic: "Prezzo bobina PLA Basic 1 kg (€)",
-    priceMatte: "Prezzo bobina PLA Matte 1 kg (€)",
-    priceOther: "Prezzo bobina altro materiale (€)",
-    hint1: "La potenza media è indicativa (stampa PLA a regime): correggila se hai una misura reale con presa smart. Il €/kWh da usare è quello marginale della bolletta: componenti a consumo (energia + rete + oneri + accisa) + IVA.",
-    s2: "2 · File 3MF",
-    dropText: "Trascina qui i file .3mf slicati (o clicca per sceglierli)",
-    thFile: "File", thPlates: "Piatti", thTime: "Tempo", thWeight: "Peso (g)", thEnergyCost: "Corrente (€)",
-    noFiles: "Nessun file caricato.",
-    s3: "3 · Materiale per colore",
-    thColor: "Colore", thMaterial: "Materiale", thGrams: "Grammi", thSpools: "Bobine 1 kg", thSpoolCost: "Costo bobine (€)",
-    hint2: "Le bobine sono calcolate per eccesso (non si compra mezza bobina). Lo spurgo dei cambi colore è già nei grammi dello slicer: tieni comunque un ~10% di riserva.",
-    totals: "Totali",
-    kTime: "Tempo totale di stampa", kWeight: "Materiale totale", kEnergy: "Energia stimata",
-    kEnergyCost: "Costo corrente", kSpoolCost: "Costo bobine da comprare", kAll: "Totale complessivo",
-    otherPrinter: "Altra stampante…",
-    errNot3mf: "non è un .3mf", errDup: "già caricato",
-    errNoSlice: "slice_info.config mancante: non è un progetto Bambu/Orca.",
-    errNotSliced: "non slicato — aprilo in Bambu Studio, slica tutti i piatti ed esporta di nuovo il 3mf.",
-    locale: "it-IT",
-  },
-  en: {
-    title: "3D Print Cost",
-    subtitle: "Drop your <b>already-sliced .3mf</b> files (exported from Bambu Studio / OrcaSlicer): print time, filament per color and electricity cost, all automatic.",
-    s1: "1 · Printer & costs",
-    printer: "Printer (pre-fills the fields)",
-    watts: "Average printing power (W)",
-    kwh: "Energy cost (€/kWh)",
-    priceBasic: "PLA Basic 1 kg spool price (€)",
-    priceMatte: "PLA Matte 1 kg spool price (€)",
-    priceOther: "Other material spool price (€)",
-    hint1: "Average power is indicative (steady-state PLA printing): adjust it if you have a real measurement from a smart plug. Use your marginal €/kWh from the bill: consumption-based components (energy + grid + levies + excise) + VAT.",
-    s2: "2 · 3MF files",
-    dropText: "Drop sliced .3mf files here (or click to choose)",
-    thFile: "File", thPlates: "Plates", thTime: "Time", thWeight: "Weight (g)", thEnergyCost: "Energy (€)",
-    noFiles: "No files loaded.",
-    s3: "3 · Filament per color",
-    thColor: "Color", thMaterial: "Material", thGrams: "Grams", thSpools: "1 kg spools", thSpoolCost: "Spool cost (€)",
-    hint2: "Spools are rounded up (you can't buy half a spool). Color-change purge is already in the slicer's grams: still keep ~10% headroom.",
-    totals: "Totals",
-    kTime: "Total print time", kWeight: "Total material", kEnergy: "Estimated energy",
-    kEnergyCost: "Electricity cost", kSpoolCost: "Spools to buy", kAll: "Grand total",
-    otherPrinter: "Other printer…",
-    errNot3mf: "not a .3mf file", errDup: "already loaded",
-    errNoSlice: "slice_info.config missing: not a Bambu/Orca project.",
-    errNotSliced: "not sliced — open it in Bambu Studio, slice all plates and export the 3mf again.",
-    locale: "en-US",
-  },
-};
-let lang = localStorage.getItem("lang") || (navigator.language || "it").slice(0, 2);
-if (!I18N[lang]) lang = "it";
-const T = () => I18N[lang];
+const $=(id)=>document.getElementById(id);
+const I18N={
+ it:{brand:"Costo <i>Stampa</i> 3D",nDash:"Panoramica",nFiles:"File",nColors:"Colori & Bobine",nPlates:"Ottimizza piatti",nSetup:"Costi & Setup",
+  tDash:"Panoramica",kTime:"Tempo di stampa",kMat:"Materiale",kSpools:"Bobine da comprare",kRefill:"refill 1 kg",kFil:"Filamento",kEnergy:"Corrente",kByColor:"Materiale per colore",kHours:"Ore per file",
+  tFiles:"File & Slicing",sFiles:"Trascina 3mf già slicati (Bambu Studio / OrcaSlicer): tempi e materiali vengono letti dal file. La versione desktop dell'app slica anche da sola.",
+  dropTxt:"Trascina qui i <b>.3mf</b> slicati (o clicca per sceglierli)",thPlates:"Piatti",thTime:"Tempo",thGrams:"Grammi",thEnergy:"Corrente",noFiles:"Nessun file caricato.",
+  tColors:"Colori & Bobine",sColors:"Prezzo per bobina con gli sconti quantità dello store Bambu (−35% da 4, −45% da 6, −50% da 10 pezzi totali).",thSpool:"Bobina",thQty:"Bobine",thTot:"Totale",noColors:"Carica dei file per vedere i colori.",
+  tPlates:"Ottimizza piatti",sPlates:"Piatti leggeri dello stesso colore accorpabili su un piatto grande: meno riscaldamenti e meno cambi manuali.",noPlates:"Carica dei file per i consigli.",
+  ruleTxt:"Regola d'oro: accorpa solo pezzi dello stesso colore, trascinandoli nello slicer. Risparmio stimato:",
+  tSetup:"Costi & Setup",sSetup:"I valori si applicano subito a tutti i calcoli.",fPrinter:"Stampante (precompila i watt)",fWatts:"Potenza media in stampa (W)",fKwh:"Energia — costo marginale (€/kWh)",fMsrp:"Listino bobina 1 kg (€)",fTiers:"Sconti quantità store",
+  tierTxt:"−35% da 4 · −45% da 6 · −50% da 10 (auto sul totale bobine)",
+  days:"giorni di stampa continua",colors:"colori",tierFull:"listino pieno",tier4:"sconto 35% (4+)",tier6:"sconto 45% (6+)",tier10:"sconto 50% (10+)",
+  errNot:"non è un 3mf valido",errDup:"già caricato",errNS:"non slicato — aprilo nello slicer, slica tutti i piatti ed esporta di nuovo",
+  plates:"piatti",plate:"piatto",locale:"it-IT",dropStart:"Trascina i tuoi file .3mf per iniziare"},
+ en:{brand:"3D <i>Print</i> Cost",nDash:"Overview",nFiles:"Files",nColors:"Colors & Spools",nPlates:"Optimize plates",nSetup:"Costs & Setup",
+  tDash:"Overview",kTime:"Print time",kMat:"Material",kSpools:"Spools to buy",kRefill:"1 kg refills",kFil:"Filament",kEnergy:"Electricity",kByColor:"Material by color",kHours:"Hours per file",
+  tFiles:"Files & Slicing",sFiles:"Drop already-sliced 3mf files (Bambu Studio / OrcaSlicer): times and materials are read from the file. The desktop app can also slice by itself.",
+  dropTxt:"Drop sliced <b>.3mf</b> files here (or click to choose)",thPlates:"Plates",thTime:"Time",thGrams:"Grams",thEnergy:"Energy",noFiles:"No files loaded.",
+  tColors:"Colors & Spools",sColors:"Per-spool price with Bambu store volume discounts (−35% at 4, −45% at 6, −50% at 10+ total).",thSpool:"Spool",thQty:"Spools",thTot:"Total",noColors:"Load files to see colors.",
+  tPlates:"Optimize plates",sPlates:"Light same-color plates you can merge on a bigger bed: fewer heat-ups and manual swaps.",noPlates:"Load files to get advice.",
+  ruleTxt:"Golden rule: merge only same-color parts by dragging them in your slicer. Estimated saving:",
+  tSetup:"Costs & Setup",sSetup:"Values apply to every calculation instantly.",fPrinter:"Printer (pre-fills wattage)",fWatts:"Average printing power (W)",fKwh:"Energy — marginal cost (€/kWh)",fMsrp:"Spool MSRP 1 kg (€)",fTiers:"Store volume discounts",
+  tierTxt:"−35% at 4 · −45% at 6 · −50% at 10 (auto on total spools)",
+  days:"days of continuous printing",colors:"colors",tierFull:"full price",tier4:"35% off (4+)",tier6:"45% off (6+)",tier10:"50% off (10+)",
+  errNot:"not a valid 3mf",errDup:"already loaded",errNS:"not sliced — open it in your slicer, slice all plates and export again",
+  plates:"plates",plate:"plate",locale:"en-US",dropStart:"Drop your .3mf files to get started"}};
+let lang=localStorage.getItem("lang")||((navigator.language||"it").slice(0,2));
+if(!I18N[lang])lang="it";
+const T=()=>I18N[lang];
+const PRINTERS=[["Bambu Lab H2C",180],["Bambu Lab H2D",180],["Bambu Lab H2D Pro",200],["Bambu Lab H2S",160],["Bambu Lab X1C",110],["Bambu Lab P1S",105],["Bambu Lab A1",80],["—",120]];
+const NAMES={"PLA Basic":{"#FFFFFF":"Jade White","#000000":"Black","#C12E1F":"Red","#0A2989":"Blue","#8E9089":"Gray","#00AE42":"Bambu Green","#3F8E43":"Mistletoe Green","#0086D6":"Cyan","#FEC600":"Sunflower Yellow","#482960":"Indigo Purple","#6F5034":"Cocoa Brown","#F5547C":"Hot Pink","#FF9016":"Pumpkin Orange","#E4BD68":"Gold","#5E43B7":"Purple","#0056B8":"Cobalt Blue","#F55A74":"Pink","#D3B7A7":"Beige"},
+"PLA Matte":{"#FFFFFF":"Ivory White","#CBC6B8":"Bone White","#E8DBB7":"Desert Tan","#D3B7A7":"Latte Brown","#AE835B":"Caramel","#B15533":"Terracotta","#7D6556":"Dark Brown","#4D3324":"Dark Chocolate","#AE96D4":"Lilac Purple","#E8AFCF":"Sakura Pink","#F99963":"Mandarin Orange","#F7D959":"Lemon Yellow","#950051":"Plum","#DE4343":"Scarlet Red","#BB3D43":"Dark Red","#68724D":"Dark Green","#61C680":"Grass Green","#C2E189":"Apple Green","#A3D8E1":"Ice Blue","#56B7E6":"Sky Blue","#0078BF":"Marine Blue","#042F56":"Dark Blue","#9B9EA0":"Ash Gray","#757575":"Nardo Gray","#000000":"Charcoal"}};
+const SETUP_MIN=8;
+const files=[];
+const hms=(s)=>{const h=Math.floor(s/3600),m=Math.round((s%3600)/60);return h?`${h}h ${String(m).padStart(2,"0")}m`:`${m}m`};
+const eur=(v)=>v.toLocaleString(T().locale,{style:"currency",currency:"EUR"});
+const spoolName=(c,t)=>(NAMES[t]||{})[c]||c;
+function tierPrice(n,msrp){if(n>=10)return{p:msrp*.5,l:T().tier10};if(n>=6)return{p:msrp*.55,l:T().tier6};if(n>=4)return{p:msrp*.65,l:T().tier4};return{p:msrp,l:T().tierFull}}
+function matType(s){return /matte/i.test(s||"")?"PLA Matte":"PLA Basic"}
 
-// Potenza media indicativa in stampa PLA (W), modificabile dopo la selezione.
-const PRINTERS = [
-  { id: "h2c",    name: "Bambu Lab H2C",     watts: 180 },
-  { id: "h2d",    name: "Bambu Lab H2D",     watts: 180 },
-  { id: "h2dpro", name: "Bambu Lab H2D Pro", watts: 200 },
-  { id: "h2s",    name: "Bambu Lab H2S",     watts: 160 },
-  { id: "x1c",    name: "Bambu Lab X1C",     watts: 110 },
-  { id: "x1e",    name: "Bambu Lab X1E",     watts: 130 },
-  { id: "p1s",    name: "Bambu Lab P1S",     watts: 105 },
-  { id: "p1p",    name: "Bambu Lab P1P",     watts: 95  },
-  { id: "p2s",    name: "Bambu Lab P2S",     watts: 110 },
-  { id: "a1",     name: "Bambu Lab A1",      watts: 80  },
-  { id: "a1mini", name: "Bambu Lab A1 mini", watts: 60  },
-  { id: "altro",  name: null,                watts: 120 }, // etichetta localizzata
-];
+document.querySelectorAll('#nav a').forEach(a=>a.addEventListener('click',()=>{
+  document.querySelectorAll('#nav a').forEach(x=>x.classList.toggle('on',x===a));
+  document.querySelectorAll('main section').forEach(s=>s.hidden=s.id!=='sec-'+a.dataset.sec);
+}));
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=T()[el.dataset.i18n]||"");
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>el.innerHTML=T()[el.dataset.i18nHtml]||"");
+  $('langIt').classList.toggle('on',lang==='it');$('langEn').classList.toggle('on',lang==='en');
+  localStorage.setItem('lang',lang);render();
+}
+$('langIt').onclick=()=>{lang='it';applyLang()};
+$('langEn').onclick=()=>{lang='en';applyLang()};
+PRINTERS.forEach(([n,w],i)=>{const o=document.createElement('option');o.value=i;o.textContent=`${n} · ${w} W`;$('printer').appendChild(o)});
+$('printer').addEventListener('change',()=>{$('watts').value=PRINTERS[+$('printer').value][1];render()});
+$('watts').value=180;
+['watts','kwh','msrp'].forEach(id=>$(id).addEventListener('input',render));
 
-// Palette ufficiale Bambu: hex → nome commerciale bobina.
-const BAMBU_COLORS = {
-  "PLA Basic": { "#FFFFFF": "Jade White", "#000000": "Black", "#C12E1F": "Red", "#0A2989": "Blue",
-    "#8E9089": "Gray", "#00AE42": "Bambu Green", "#3F8E43": "Mistletoe Green", "#0086D6": "Cyan",
-    "#FEC600": "Sunflower Yellow", "#482960": "Indigo Purple", "#6F5034": "Cocoa Brown",
-    "#F5547C": "Hot Pink", "#FF9016": "Pumpkin Orange", "#E4BD68": "Gold", "#5E43B7": "Purple",
-    "#0056B8": "Cobalt Blue", "#F55A74": "Pink", "#D3B7A7": "Beige" },
-  "PLA Matte": { "#FFFFFF": "Ivory White", "#CBC6B8": "Bone White", "#E8DBB7": "Desert Tan",
-    "#D3B7A7": "Latte Brown", "#AE835B": "Caramel", "#B15533": "Terracotta", "#7D6556": "Dark Brown",
-    "#4D3324": "Dark Chocolate", "#AE96D4": "Lilac Purple", "#E8AFCF": "Sakura Pink",
-    "#F99963": "Mandarin Orange", "#F7D959": "Lemon Yellow", "#950051": "Plum", "#DE4343": "Scarlet Red",
-    "#BB3D43": "Dark Red", "#68724D": "Dark Green", "#61C680": "Grass Green", "#C2E189": "Apple Green",
-    "#A3D8E1": "Ice Blue", "#56B7E6": "Sky Blue", "#0078BF": "Marine Blue", "#042F56": "Dark Blue",
-    "#9B9EA0": "Ash Gray", "#757575": "Nardo Gray", "#000000": "Charcoal" },
-};
-
-const files = []; // { name, plates, seconds, grams, colors: [{color,type,grams}] }
-const $ = (id) => document.getElementById(id);
-
-function applyLang() {
-  document.documentElement.lang = lang;
-  document.querySelectorAll("[data-i18n]").forEach(el => el.textContent = T()[el.dataset.i18n] || "");
-  document.querySelectorAll("[data-i18n-html]").forEach(el => el.innerHTML = T()[el.dataset.i18nHtml] || "");
-  $("langIt").classList.toggle("on", lang === "it");
-  $("langEn").classList.toggle("on", lang === "en");
-  const sel = $("printer");
-  const other = sel.querySelector('option[value="altro"]');
-  if (other) other.textContent = T().otherPrinter;
-  localStorage.setItem("lang", lang);
+async function parse3mf(file){
+  const zip=await JSZip.loadAsync(file);
+  const si=zip.file("Metadata/slice_info.config");
+  if(!si)throw new Error(T().errNot);
+  const xml=await si.async("string");
+  let slotColors=[],slotTypes=[],objSlot={};
+  const ps=zip.file("Metadata/project_settings.config");
+  if(ps){try{const cfg=JSON.parse(await ps.async("string"));
+    slotColors=(cfg.filament_colour||[]).map(c=>c.toUpperCase());
+    slotTypes=(cfg.filament_settings_id||[]).map(matType);}catch(e){}}
+  const ms=zip.file("Metadata/model_settings.config");
+  if(ms){const t=await ms.async("string");
+    for(const om of t.matchAll(/<object id="(\d+)">([\s\S]*?)<\/object>/g)){
+      const nm=/name" value="([^"]+)"/.exec(om[2]);const ex=/extruder" value="(\d+)"/.exec(om[2]);
+      if(nm)objSlot[nm[1]]=ex?+ex[1]:1;}}
+  const plates=[];let seconds=0,grams=0;const perColor={};
+  for(const pm of xml.matchAll(/<plate>([\s\S]*?)<\/plate>/g)){
+    const b=pm[1];const pred=/key="prediction" value="(\d+)"/.exec(b);
+    if(!pred)continue;
+    const objs=[...b.matchAll(/object identify_id="\d+" name="([^"]+)"/g)].map(x=>x[1]);
+    const fils=[...b.matchAll(/filament id="(\d+)"[^/]*?color="([^"]+)"[^/]*?used_g="([^"]+)"/g)];
+    const trueSlot=objs.length?(objSlot[objs[0]]??1):1;
+    let pg=0;const cs=new Set();
+    for(const f of fils){
+      const slot=+f[1]===1?trueSlot:+f[1];
+      const color=slotColors[slot-1]||f[2].toUpperCase();
+      const type=slotTypes[slot-1]||"PLA Basic";
+      const g=+f[3];const key=color+"|"+type;
+      perColor[key]=(perColor[key]||0)+g;pg+=g;grams+=g;cs.add(key);}
+    seconds+=+pred[1];
+    plates.push({n:plates.length+1,seconds:+pred[1],grams:pg,colors:[...cs]});}
+  if(!plates.length)throw new Error(T().errNS);
+  return{plates,seconds,grams,perColor};
+}
+async function addFiles(list){
+  const warns=[];
+  for(const f of list){
+    if(!f.name.toLowerCase().endsWith(".3mf")){warns.push(`${f.name}: ${T().errNot}`);continue}
+    if(files.some(x=>x.name===f.name)){warns.push(`${f.name}: ${T().errDup}`);continue}
+    try{files.push({name:f.name,data:await parse3mf(f)})}
+    catch(e){warns.push(`${f.name}: ${e.message}`)}}
+  $('fileWarn').innerHTML=warns.map(w=>`<p class="warn">⚠ ${w}</p>`).join("");
   render();
 }
+const drop=$('drop'),input=$('fileInput');
+drop.addEventListener('click',()=>input.click());
+input.addEventListener('change',()=>{addFiles([...input.files]);input.value=""});
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>addFiles([...e.dataTransfer.files]));
 
-function initPrinters() {
-  const sel = $("printer");
-  PRINTERS.forEach(p => {
-    const o = document.createElement("option");
-    o.value = p.id; o.textContent = p.name || "";
-    sel.appendChild(o);
-  });
-  sel.addEventListener("change", () => {
-    const p = PRINTERS.find(x => x.id === sel.value);
-    if (p) $("watts").value = p.watts;
-    render();
-  });
-  sel.value = "h2c";
-  $("watts").value = PRINTERS[0].watts;
+function mergeAdvice(){
+  const out=[];
+  for(const f of files){
+    if(!f.data)continue;
+    const groups={};
+    for(const p of f.data.plates){
+      if(p.seconds>6*3600&&p.grams>300)continue;
+      const key=p.colors.slice().sort().join("+")||"x";
+      (groups[key]=groups[key]||[]).push(p);}
+    for(const[key,plates]of Object.entries(groups)){
+      if(plates.length<2)continue;
+      const target=Math.max(1,Math.ceil(plates.length/3));
+      out.push({file:f.name.replace(".3mf",""),colors:key.split("+"),from:plates.map(p=>p.n),to:target,saved:(plates.length-target)*SETUP_MIN});}}
+  return out.sort((a,b)=>b.saved-a.saved);
 }
-
-function hms(sec) {
-  const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
-  return h > 0 ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}m`;
+function render(){
+  const watts=+$('watts').value||0,kwh=+$('kwh').value||0,msrp=+$('msrp').value||0;
+  $('footInfo').innerHTML=`${watts} W · ${kwh.toLocaleString(T().locale)} €/kWh`;
+  const loaded=files.filter(f=>f.data);
+  let totSec=0,totG=0;const perColor={};
+  for(const f of loaded){totSec+=f.data.seconds;totG+=f.data.grams;
+    for(const[k,g]of Object.entries(f.data.perColor))perColor[k]=(perColor[k]||0)+g;}
+  const rows=Object.entries(perColor).map(([k,g])=>{const[color,type]=k.split("|");return{color,type,g,spools:Math.max(1,Math.ceil(g/1000))}}).sort((a,b)=>b.g-a.g);
+  const totSpools=rows.reduce((s,r)=>s+r.spools,0);
+  const tier=tierPrice(totSpools,msrp);
+  const filCost=totSpools*tier.p;
+  const kWh=totSec/3600*watts/1000, enCost=kWh*kwh;
+  $('dashSub').textContent=loaded.length?`${loaded.length} file · ${loaded.reduce((s,f)=>s+f.data.plates.length,0)} ${T().plates}`:T().dropStart;
+  $('tTime').innerHTML=loaded.length?`${Math.floor(totSec/3600)}<small> h</small>`:"—";
+  $('tTimeD').textContent=loaded.length?`≈ ${Math.ceil(totSec/86400)} ${T().days}`:"";
+  $('tGrams').innerHTML=loaded.length?`${(totG/1000).toFixed(1)}<small> kg</small>`:"—";
+  $('tColorsD').textContent=rows.length?`${rows.length} ${T().colors}`:"";
+  $('tSpools').textContent=loaded.length?totSpools:"—";
+  $('tFilCost').textContent=loaded.length?eur(filCost):"—";
+  $('tTierD').textContent=loaded.length?tier.l:"";
+  $('tEnCost').textContent=loaded.length?eur(enCost):"—";
+  $('tEnD').textContent=loaded.length?`${kWh.toFixed(1)} kWh`:"";
+  if(rows.length){let acc=0;
+    const stops=rows.map(r=>{const from=acc/totG*100;acc+=r.g;return`${r.color} ${from.toFixed(1)}% ${(acc/totG*100).toFixed(1)}%`});
+    $('donut').style.background=`conic-gradient(${stops.join(",")})`;
+    $('donutTot').textContent=(totG/1000).toFixed(1)+" kg";
+    $('legend').innerHTML=rows.slice(0,8).map(r=>`<span><i style="background:${r.color}"></i>${spoolName(r.color,r.type)}</span>`).join("");
+  }else{$('donut').style.background="rgba(120,130,160,.15)";$('donutTot').textContent="";$('legend').innerHTML=""}
+  const maxSec=Math.max(...loaded.map(f=>f.data.seconds),1);
+  $('spark').innerHTML=loaded.slice().sort((a,b)=>b.data.seconds-a.data.seconds)
+    .map(f=>`<div class="bar" style="height:${Math.max(4,f.data.seconds/maxSec*100)}%" title="${f.name} — ${hms(f.data.seconds)}"><em>${Math.round(f.data.seconds/3600)}h</em></div>`).join("");
+  const tb=$('filesTable').querySelector('tbody');
+  tb.innerHTML=files.map((f,i)=>{
+    const c=f.data.seconds/3600*watts/1000*kwh;
+    return`<tr><td>${f.name}</td><td class="n">${f.data.plates.length}</td><td class="n">${hms(f.data.seconds)}</td><td class="n">${f.data.grams.toFixed(0)}</td><td class="n">${eur(c)}</td><td><span class="badge">ok</span> <button class="iconbtn" data-del="${i}">✕</button></td></tr>`}).join("");
+  $('filesEmpty').hidden=files.length>0;
+  tb.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{files.splice(+b.dataset.del,1);render()}));
+  const ctb=$('colorsTable').querySelector('tbody');
+  ctb.innerHTML=rows.map(r=>`<tr><td><span class="sw" style="background:${r.color}"></span>${r.type} ${spoolName(r.color,r.type)}</td><td class="n">${r.g.toFixed(0)}</td><td class="n">${r.spools}</td><td class="n">${eur(tier.p)}</td><td class="n">${eur(r.spools*tier.p)}</td></tr>`).join("")+
+   (rows.length?`<tr><td><b>Totale</b></td><td class="n"><b>${totG.toFixed(0)}</b></td><td class="n"><b>${totSpools}</b></td><td></td><td class="n"><b>${eur(filCost)}</b></td></tr>`:"");
+  $('colorsEmpty').hidden=rows.length>0;
+  const advice=mergeAdvice();
+  $('mergeList').innerHTML=advice.length?advice.map(a=>`
+    <div class="merge"><span class="chip">${a.colors.map(k=>`<span class="sw" style="background:${k.split("|")[0]}"></span>`).join("")}${a.file}</span>
+    <span class="chip">${T().plates} ${a.from.join(", ")}</span> →
+    <span class="chip">${a.to} ${a.to>1?T().plates:T().plate} H2C</span>
+    <span class="gain">−${a.saved} min</span></div>`).join("")+
+    `<div class="merge" style="color:var(--mut);font-size:12px">${T().ruleTxt} <b style="margin-left:4px">${Math.round(advice.reduce((s,a)=>s+a.saved,0)/60*10)/10} h</b></div>`
+    :`<div class="empty">${T().noPlates}</div>`;
 }
-function eur(v) { return v.toLocaleString(T().locale, { style: "currency", currency: "EUR" }); }
-
-function matType(settingsId, fallback) {
-  const s = (settingsId || fallback || "").toLowerCase();
-  if (s.includes("matte")) return "PLA Matte";
-  if (s.includes("pla")) return "PLA Basic";
-  return fallback || "—";
-}
-
-async function parse3mf(file) {
-  const zip = await JSZip.loadAsync(file);
-  const sliceEntry = zip.file("Metadata/slice_info.config");
-  if (!sliceEntry) throw new Error(T().errNoSlice);
-  const xmlText = await sliceEntry.async("string");
-  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
-  const plates = [...xml.querySelectorAll("plate")].filter(p => p.querySelector('metadata[key="prediction"]'));
-  if (plates.length === 0) throw new Error(T().errNotSliced);
-
-  let slotTypes = {};
-  const ps = zip.file("Metadata/project_settings.config");
-  if (ps) {
-    try {
-      const cfg = JSON.parse(await ps.async("string"));
-      (cfg.filament_settings_id || []).forEach((s, i) => slotTypes[i + 1] = matType(s));
-    } catch (e) { /* opzionale */ }
-  }
-
-  let seconds = 0, grams = 0;
-  const colors = {};
-  plates.forEach(p => {
-    seconds += parseFloat(p.querySelector('metadata[key="prediction"]').getAttribute("value")) || 0;
-    grams += parseFloat(p.querySelector('metadata[key="weight"]')?.getAttribute("value")) || 0;
-    p.querySelectorAll("filament").forEach(f => {
-      const color = (f.getAttribute("color") || "#888888").toUpperCase();
-      const slot = parseInt(f.getAttribute("id"), 10);
-      const type = slotTypes[slot] || matType(null, f.getAttribute("type"));
-      const g = parseFloat(f.getAttribute("used_g")) || 0;
-      const key = color + "|" + type;
-      colors[key] = (colors[key] || 0) + g;
-    });
-  });
-  return {
-    name: file.name, plates: plates.length, seconds, grams,
-    colors: Object.entries(colors).map(([k, g]) => {
-      const [color, type] = k.split("|");
-      return { color, type, grams: g };
-    }),
-  };
-}
-
-async function addFiles(list) {
-  const warns = [];
-  for (const f of list) {
-    if (!f.name.toLowerCase().endsWith(".3mf")) { warns.push(`${f.name}: ${T().errNot3mf}`); continue; }
-    if (files.some(x => x.name === f.name)) { warns.push(`${f.name}: ${T().errDup}`); continue; }
-    try { files.push(await parse3mf(f)); }
-    catch (e) { warns.push(`${f.name}: ${e.message}`); }
-  }
-  $("fileWarn").innerHTML = warns.map(w => `<p class="warn">⚠ ${w}</p>`).join("");
-  render();
-}
-
-function spoolName(color, type) {
-  return (BAMBU_COLORS[type] || {})[color] || color;
-}
-
-function render() {
-  const tbody = $("filesTable").querySelector("tbody");
-  tbody.innerHTML = "";
-  const watts = parseFloat($("watts").value) || 0;
-  const kwh = parseFloat($("kwh").value) || 0;
-  const prices = {
-    "PLA Basic": parseFloat($("priceBasic").value) || 0,
-    "PLA Matte": parseFloat($("priceMatte").value) || 0,
-  };
-  const priceOther = parseFloat($("priceOther").value) || 0;
-
-  let totSec = 0, totG = 0;
-  files.forEach((f, i) => {
-    totSec += f.seconds; totG += f.grams;
-    const cost = f.seconds / 3600 * watts / 1000 * kwh;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${f.name}</td><td class="num">${f.plates}</td><td class="num">${hms(f.seconds)}</td>
-      <td class="num">${f.grams.toFixed(0)}</td><td class="num">${eur(cost)}</td>
-      <td><button class="del" data-i="${i}" title="✕">✕</button></td>`;
-    tbody.appendChild(tr);
-  });
-  tbody.querySelectorAll(".del").forEach(b => b.addEventListener("click", () => { files.splice(+b.dataset.i, 1); render(); }));
-  $("filesTable").hidden = files.length === 0;
-  $("filesEmpty").hidden = files.length > 0;
-
-  const agg = {};
-  files.forEach(f => f.colors.forEach(c => {
-    const k = c.color + "|" + c.type;
-    agg[k] = (agg[k] || 0) + c.grams;
-  }));
-  const rows = Object.entries(agg).map(([k, g]) => {
-    const [color, type] = k.split("|");
-    return { color, type, grams: g, spools: Math.ceil(g / 1000) };
-  }).sort((a, b) => b.grams - a.grams);
-
-  const ctb = $("colorsTable").querySelector("tbody");
-  ctb.innerHTML = "";
-  let spoolCost = 0;
-  rows.forEach(r => {
-    const unit = prices[r.type] ?? priceOther;
-    const c = r.spools * unit;
-    spoolCost += c;
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td><span class="sw" style="background:${r.color}"></span>${spoolName(r.color, r.type)}</td>
-      <td>${r.type}</td><td class="num">${r.grams.toFixed(0)}</td><td class="num">${r.spools}</td><td class="num">${eur(c)}</td>`;
-    ctb.appendChild(tr);
-  });
-  $("colorsCard").hidden = rows.length === 0;
-
-  const kWh = totSec / 3600 * watts / 1000;
-  const eCost = kWh * kwh;
-  $("tTime").textContent = hms(totSec);
-  $("tWeight").textContent = (totG / 1000).toFixed(2) + " kg";
-  $("tEnergy").textContent = kWh.toFixed(1) + " kWh";
-  $("tEnergyCost").textContent = eur(eCost);
-  $("tSpoolCost").textContent = eur(spoolCost);
-  $("tAll").textContent = eur(eCost + spoolCost);
-  $("totalsCard").hidden = files.length === 0;
-}
-
-function initDrop() {
-  const drop = $("drop"), input = $("fileInput");
-  drop.addEventListener("click", () => input.click());
-  input.addEventListener("change", () => { addFiles([...input.files]); input.value = ""; });
-  ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
-  ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
-  drop.addEventListener("drop", e => addFiles([...e.dataTransfer.files]));
-}
-
-$("langIt").addEventListener("click", () => { lang = "it"; applyLang(); });
-$("langEn").addEventListener("click", () => { lang = "en"; applyLang(); });
-["watts", "kwh", "priceBasic", "priceMatte", "priceOther"].forEach(id => $(id).addEventListener("input", render));
-initPrinters();
-initDrop();
 applyLang();
 </script>
 </body>
