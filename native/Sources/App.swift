@@ -87,6 +87,40 @@ enum Loc {
         "t10": ["it":"−50% (10+)","en":"−50% (10+)","es":"−50% (10+)","fr":"−50% (10+)"],
         "other": ["it":"Altra","en":"Other","es":"Otra","fr":"Autre"],
         "busy": ["it":"Slicing di %@ con Bambu Studio…","en":"Slicing %@ with Bambu Studio…","es":"Laminando %@ con Bambu Studio…","fr":"Découpage de %@ avec Bambu Studio…"],
+        // sezioni nuove
+        "nMaterials": ["it":"Materiali","en":"Materials","es":"Materiales","fr":"Matériaux"],
+        "nPrinters": ["it":"Stampanti","en":"Printers","es":"Impresoras","fr":"Imprimantes"],
+        // costo reale
+        "realCost": ["it":"Costo reale della stampa","en":"Real print cost","es":"Coste real de impresión","fr":"Coût réel d'impression"],
+        "cMaterial": ["it":"Materiale consumato","en":"Material used","es":"Material usado","fr":"Matériau utilisé"],
+        "cEnergy": ["it":"Energia","en":"Energy","es":"Energía","fr":"Énergie"],
+        "cWear": ["it":"Usura macchina","en":"Machine wear","es":"Desgaste máquina","fr":"Usure machine"],
+        "cSetup": ["it":"Avvii / setup","en":"Setup / starts","es":"Arranques","fr":"Démarrages"],
+        "cFailure": ["it":"Fallimenti","en":"Failures","es":"Fallos","fr":"Échecs"],
+        "cTotal": ["it":"Costo reale totale","en":"Total real cost","es":"Coste real total","fr":"Coût réel total"],
+        "cUpfront": ["it":"Bobine da comprare (spesa iniziale)","en":"Spools to buy (upfront)","es":"Bobinas a comprar (inicial)","fr":"Bobines à acheter (initial)"],
+        // materiali
+        "sMaterials": ["it":"Il costo reale usa il €/kg e la densità del materiale abbinato a ogni colore.","en":"Real cost uses each color's material €/kg and density.","es":"El coste real usa €/kg y densidad de cada material.","fr":"Le coût réel utilise le €/kg et la densité de chaque matériau."],
+        "mName": ["it":"Nome","en":"Name","es":"Nombre","fr":"Nom"],
+        "mType": ["it":"Tipo","en":"Type","es":"Tipo","fr":"Type"],
+        "mColor": ["it":"Colore","en":"Color","es":"Color","fr":"Couleur"],
+        "mCost": ["it":"€/kg","en":"€/kg","es":"€/kg","fr":"€/kg"],
+        "mDensity": ["it":"Densità g/cm³","en":"Density g/cm³","es":"Densidad g/cm³","fr":"Densité g/cm³"],
+        "mStock": ["it":"Scorta kg","en":"Stock kg","es":"Stock kg","fr":"Stock kg"],
+        "addMaterial": ["it":"Aggiungi materiale","en":"Add material","es":"Añadir material","fr":"Ajouter matériau"],
+        "resetDefaults": ["it":"Ripristina predefiniti","en":"Reset defaults","es":"Restaurar valores","fr":"Réinitialiser"],
+        // stampanti
+        "sPrinters": ["it":"Potenza, usura oraria e costo di avvio entrano nel costo reale.","en":"Wattage, hourly wear and startup cost feed the real cost.","es":"Potencia, desgaste y arranque entran en el coste real.","fr":"Puissance, usure et démarrage alimentent le coût réel."],
+        "pName": ["it":"Stampante","en":"Printer","es":"Impresora","fr":"Imprimante"],
+        "pWatts": ["it":"Watt","en":"Watts","es":"Vatios","fr":"Watts"],
+        "pWear": ["it":"Usura €/h","en":"Wear €/h","es":"Desgaste €/h","fr":"Usure €/h"],
+        "pSetup": ["it":"Setup €","en":"Setup €","es":"Setup €","fr":"Setup €"],
+        "addPrinter": ["it":"Aggiungi stampante","en":"Add printer","es":"Añadir impresora","fr":"Ajouter imprimante"],
+        "selected": ["it":"In uso","en":"In use","es":"En uso","fr":"En usage"],
+        // setup
+        "fFailure": ["it":"Tasso di fallimento stampe (%)","en":"Print failure rate (%)","es":"Tasa de fallos (%)","fr":"Taux d'échec (%)"],
+        "failureNote": ["it":"Quota aggiunta al costo per coprire le stampe fallite/riprovate.","en":"Added to cost to cover failed/retried prints.","es":"Añadido al coste para cubrir fallos.","fr":"Ajouté au coût pour couvrir les échecs."],
+        "wearHint": ["it":"Usura = prezzo macchina ÷ ore di vita utile. Es. 1500€ / 12000h ≈ 0,12 €/h.","en":"Wear = machine price ÷ useful-life hours. E.g. 1500€ / 12000h ≈ 0.12 €/h.","es":"Desgaste = precio ÷ horas de vida. Ej. 1500€ / 12000h ≈ 0,12 €/h.","fr":"Usure = prix ÷ heures de vie. Ex. 1500€ / 12000h ≈ 0,12 €/h."],
     ]
 }
 
@@ -96,7 +130,7 @@ enum Loc {
 final class AppModel: ObservableObject {
     @Published var files: [LoadedFile] = []
     @Published var watts: Double = 180
-    @Published var kwh: Double = 0.209
+    @Published var kwh: Double = 0.209 { didSet { persist() } }
     @Published var section: Section = .overview
     @Published var busy: String? = nil
 
@@ -115,22 +149,44 @@ final class AppModel: ObservableObject {
     @Published var otherBrand: String = "Generico"
     @Published var otherPrice: Double = 20.0
 
+    // Database persistenti + parametri costo "maker"
+    @Published var materials: [Material] = [] { didSet { persist() } }
+    @Published var printersDB: [PrinterProfile] = [] { didSet { persist() } }
+    @Published var selPrinterID: UUID? { didSet { if let p = selectedPrinter { watts = p.watts }; persist() } }
+    @Published var failurePct: Double = 7 { didSet { persist() } }
+
+    init() {
+        let s = Store.load()
+        materials = s.materials; printersDB = s.printers; failurePct = s.failurePct; kwh = s.kwh
+        selPrinterID = s.printers.first?.id
+        if let p = s.printers.first { watts = p.watts }
+    }
+    private var loadedOnce = false
+    func persist() {
+        // evita salvataggi durante l'init
+        guard !materials.isEmpty || !printersDB.isEmpty else { return }
+        Store.save(StoreData(materials: materials, printers: printersDB, failurePct: failurePct, kwh: kwh))
+    }
+    var selectedPrinter: PrinterProfile? { printersDB.first { $0.id == selPrinterID } ?? printersDB.first }
+
+    /// materiale associato a un colore del progetto (per costo consumato a €/kg)
+    func material(forHex hex: String, type: String) -> Material? {
+        materials.first { $0.colorHex.uppercased() == hex.uppercased() && $0.type == type }
+        ?? materials.first { $0.colorHex.uppercased() == hex.uppercased() }
+    }
+
     enum Section: String, CaseIterable, Identifiable {
-        case overview, files, colors, plates, setup
+        case overview, files, colors, materials, printers, plates, setup
         var id: String { rawValue }
-        var locKey: String { ["overview":"nOverview","files":"nFiles","colors":"nColors","plates":"nPlates","setup":"nSetup"][rawValue]! }
+        var locKey: String { ["overview":"nOverview","files":"nFiles","colors":"nColors","materials":"nMaterials","printers":"nPrinters","plates":"nPlates","setup":"nSetup"][rawValue]! }
         var icon: String {
             switch self {
             case .overview: "square.grid.2x2.fill"; case .files: "doc.fill"; case .colors: "paintpalette.fill"
+            case .materials: "cylinder.split.1x2.fill"; case .printers: "printer.fill"
             case .plates: "puzzlepiece.fill"; case .setup: "gearshape.fill"
             }
         }
     }
-
-    let printers: [(String, Double)] = [
-        ("Bambu Lab H2C", 180), ("Bambu Lab H2D", 180), ("Bambu Lab H2D Pro", 200),
-        ("Bambu Lab H2S", 160), ("Bambu Lab X1C", 110), ("Bambu Lab P1S", 105),
-        ("Bambu Lab A1", 80), ("—", 120)]
 
     var loaded: [LoadedFile] { files.filter { $0.analysis != nil } }
     var totalSeconds: Double { loaded.reduce(0) { $0 + $1.analysis!.seconds } }
@@ -164,6 +220,24 @@ final class AppModel: ObservableObject {
     var filamentCost: Double { Double(totalSpools) * unitPrice.price }
     var kWh: Double { totalSeconds / 3600 * watts / 1000 }
     var energyCost: Double { kWh * kwh }
+    var totalHours: Double { totalSeconds / 3600 }
+
+    /// Costo REALE della stampa (vista maker): materiale consumato + energia + usura + setup + fallimenti.
+    var cost: CostBreakdown {
+        var b = CostBreakdown()
+        for r in colorRows {
+            let perKg = material(forHex: r.hex, type: r.type)?.costPerKg ?? unitPrice.price
+            b.material += r.grams / 1000.0 * perKg
+        }
+        b.energy = energyCost
+        if let p = selectedPrinter {
+            b.wear = totalHours * p.wearPerHour
+            b.setup = Double(totalPlates) * p.setupCost
+        }
+        b.failure = b.base * failurePct / 100.0
+        b.spools = filamentCost
+        return b
+    }
 
     struct MergeAdvice: Identifiable { let id = UUID(); let file: String; let colors: [String]; let from: [Int]; let to: Int; let saved: Int }
     var mergeAdvice: [MergeAdvice] {

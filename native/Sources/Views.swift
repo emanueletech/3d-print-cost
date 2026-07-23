@@ -118,6 +118,8 @@ struct Detail: View {
                 case .overview: OverviewView()
                 case .files: FilesView()
                 case .colors: ColorsView()
+                case .materials: MaterialsView()
+                case .printers: PrintersView()
                 case .plates: PlatesView()
                 case .setup: SetupView()
                 }
@@ -202,7 +204,55 @@ struct OverviewView: View {
                         }
                     }
                 }.padding(.top, 13)
+
+                RealCostCard().padding(.top, 13)
             }
+        }
+    }
+}
+
+// Scomposizione del costo reale della stampa (vista maker)
+struct RealCostCard: View {
+    @EnvironmentObject var m: AppModel
+    var body: some View {
+        let c = m.cost
+        GlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(m.t("realCost"), systemImage: "eurosign.circle.fill").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
+                HStack(alignment: .top, spacing: 20) {
+                    VStack(spacing: 8) {
+                        row("cMaterial", c.material, .purple)
+                        row("cEnergy", c.energy, .orange)
+                        row("cWear", c.wear, .blue)
+                        row("cSetup", c.setup, .teal)
+                        row("cFailure", c.failure, .red)
+                    }.frame(maxWidth: .infinity)
+                    // colonna totale + upfront
+                    VStack(alignment: .trailing, spacing: 6) {
+                        Text(m.t("cTotal").uppercased()).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.8)
+                        Text(eur(c.total)).font(.system(size: 34, weight: .bold, design: .rounded)).foregroundStyle(.green)
+                        Divider().frame(width: 140).padding(.vertical, 4)
+                        Text(m.t("cUpfront").uppercased()).font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.secondary).tracking(0.5).multilineTextAlignment(.trailing)
+                        Text(eur(c.spools)).font(.system(size: 18, weight: .semibold, design: .rounded))
+                    }.frame(width: 200, alignment: .trailing)
+                }
+            }
+        }
+    }
+    @ViewBuilder func row(_ key: String, _ v: Double, _ tint: Color) -> some View {
+        let c = m.cost
+        HStack {
+            Circle().fill(tint).frame(width: 8, height: 8)
+            Text(m.t(key)).font(.system(size: 13))
+            Spacer()
+            // barra proporzionale al totale base
+            GeometryReader { g in
+                RoundedRectangle(cornerRadius: 3).fill(tint.opacity(0.25))
+                    .overlay(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3).fill(tint).frame(width: g.size.width * min(1, v / max(c.total, 0.01)))
+                    }
+            }.frame(height: 6).frame(maxWidth: 120)
+            Text(eur(v)).font(.system(size: 13, weight: .medium)).frame(width: 70, alignment: .trailing)
         }
     }
 }
@@ -463,14 +513,17 @@ struct SetupView: View {
                 GlassCard {
                     VStack(alignment: .leading, spacing: 14) {
                         Field(m.t("fPrinter")) {
-                            Picker("", selection: Binding(
-                                get: { m.printers.firstIndex { $0.1 == m.watts } ?? 0 },
-                                set: { m.watts = m.printers[$0].1 })) {
-                                ForEach(0..<m.printers.count, id: \.self) { i in Text("\(m.printers[i].0) · \(Int(m.printers[i].1)) W").tag(i) }
+                            Picker("", selection: $m.selPrinterID) {
+                                ForEach(m.printersDB) { p in
+                                    Text("\(p.name) · \(Int(p.watts)) W").tag(Optional(p.id))
+                                }
                             }.labelsHidden()
                         }
-                        Field(m.t("fWatts")) { TextField("", value: $m.watts, format: .number).textFieldStyle(.roundedBorder) }
                         Field(m.t("fKwh")) { TextField("", value: $m.kwh, format: .number).textFieldStyle(.roundedBorder) }
+                        Field(m.t("fFailure")) {
+                            HStack { Slider(value: $m.failurePct, in: 0...30, step: 1); Text("\(Int(m.failurePct)) %").frame(width: 44) }
+                        }
+                        Text(m.t("failureNote")).font(.system(size: 11.5)).foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
                 VStack(spacing: 14) {
@@ -496,5 +549,100 @@ struct BusyBar: View {
             .background(Capsule().fill(.regularMaterial)).overlay(Capsule().strokeBorder(.white.opacity(0.15)))
             .shadow(color: .black.opacity(0.3), radius: 14, y: 6)
             .padding(.bottom, 26)
+    }
+}
+
+// MARK: - Materiali (database editabile)
+
+struct MaterialsView: View {
+    @EnvironmentObject var m: AppModel
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(m.t("sMaterials")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+            HStack {
+                Button { m.materials.insert(Material(name: "Nuovo", type: "PLA Basic", colorHex: "#8E9089", costPerKg: 22.99, densityGcm3: 1.24), at: 0) } label: {
+                    Label(m.t("addMaterial"), systemImage: "plus")
+                }.buttonStyle(.borderedProminent).controlSize(.small)
+                Button { m.materials = Store.defaultMaterials() } label: { Label(m.t("resetDefaults"), systemImage: "arrow.counterclockwise") }.buttonStyle(.bordered).controlSize(.small)
+                Spacer()
+            }
+            GlassCard(pad: 6) {
+                VStack(spacing: 0) {
+                    HStack {
+                        Text(m.t("mColor")).frame(width: 44, alignment: .leading)
+                        Text(m.t("mName")).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(m.t("mType")).frame(width: 110, alignment: .leading)
+                        Text(m.t("mCost")).frame(width: 80, alignment: .trailing)
+                        Text(m.t("mDensity")).frame(width: 100, alignment: .trailing)
+                        Text(m.t("mStock")).frame(width: 70, alignment: .trailing)
+                        Text("").frame(width: 30)
+                    }.font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.6).padding(.horizontal, 10).padding(.vertical, 9)
+                    ForEach($m.materials) { $mat in
+                        HStack {
+                            ColorPicker("", selection: Binding(
+                                get: { Color(hex: mat.colorHex) },
+                                set: { mat.colorHex = $0.hex6 }), supportsOpacity: false).labelsHidden().frame(width: 44, alignment: .leading)
+                            TextField("", text: $mat.name).textFieldStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
+                            TextField("", text: $mat.type).textFieldStyle(.plain).frame(width: 110, alignment: .leading)
+                            TextField("", value: $mat.costPerKg, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 80)
+                            TextField("", value: $mat.densityGcm3, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 100)
+                            TextField("", value: Binding(get: { mat.stockKg ?? 0 }, set: { mat.stockKg = $0 }), format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 70)
+                            Button { m.materials.removeAll { $0.id == mat.id } } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).frame(width: 30)
+                        }.font(.system(size: 13)).padding(.horizontal, 10).padding(.vertical, 6).overlay(Rectangle().fill(.white.opacity(0.06)).frame(height: 1), alignment: .top)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Stampanti (database editabile)
+
+struct PrintersView: View {
+    @EnvironmentObject var m: AppModel
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(m.t("sPrinters")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+            HStack {
+                Button { m.printersDB.insert(PrinterProfile(name: "Nuova", watts: 120, wearPerHour: 0.08, setupCost: 0.15), at: 0) } label: {
+                    Label(m.t("addPrinter"), systemImage: "plus")
+                }.buttonStyle(.borderedProminent).controlSize(.small)
+                Button { m.printersDB = Store.defaultPrinters(); m.selPrinterID = m.printersDB.first?.id } label: { Label(m.t("resetDefaults"), systemImage: "arrow.counterclockwise") }.buttonStyle(.bordered).controlSize(.small)
+                Spacer()
+                Text(m.t("wearHint")).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            GlassCard(pad: 6) {
+                VStack(spacing: 0) {
+                    HStack {
+                        Text("").frame(width: 30)
+                        Text(m.t("pName")).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(m.t("pWatts")).frame(width: 80, alignment: .trailing)
+                        Text(m.t("pWear")).frame(width: 90, alignment: .trailing)
+                        Text(m.t("pSetup")).frame(width: 80, alignment: .trailing)
+                        Text("").frame(width: 30)
+                    }.font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.6).padding(.horizontal, 10).padding(.vertical, 9)
+                    ForEach($m.printersDB) { $p in
+                        HStack {
+                            Button { m.selPrinterID = p.id } label: {
+                                Image(systemName: m.selPrinterID == p.id ? "largecircle.fill.circle" : "circle").foregroundStyle(m.selPrinterID == p.id ? Color.accentColor : .secondary)
+                            }.buttonStyle(.plain).frame(width: 30).help(m.t("selected"))
+                            TextField("", text: $p.name).textFieldStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
+                            TextField("", value: $p.watts, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 80)
+                            TextField("", value: $p.wearPerHour, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 90)
+                            TextField("", value: $p.setupCost, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 80)
+                            Button { m.printersDB.removeAll { $0.id == p.id } } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).frame(width: 30)
+                        }.font(.system(size: 13)).padding(.horizontal, 10).padding(.vertical, 6).overlay(Rectangle().fill(.white.opacity(0.06)).frame(height: 1), alignment: .top)
+                    }
+                }
+            }
+        }
+    }
+}
+
+extension Color {
+    // hex a 6 cifre da un Color (per ColorPicker → storage)
+    var hex6: String {
+        let ns = NSColor(self).usingColorSpace(.sRGB) ?? .gray
+        return String(format: "#%02X%02X%02X", Int(ns.redComponent*255), Int(ns.greenComponent*255), Int(ns.blueComponent*255))
     }
 }

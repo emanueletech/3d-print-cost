@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")"
 SDK="/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk"
 swiftc -parse-as-library -sdk "$SDK" -target arm64-apple-macos26.0 \
-  -o CostoStampa Sources/Model.swift Sources/App.swift Sources/Views.swift
+  -o CostoStampa Sources/*.swift
 APP="3D Print Cost.app"
 EXE="CostoStampa3D"     # nome interno dell'eseguibile (deve combaciare con CFBundleExecutable)
 rm -rf "$APP" CostoStampa3D.app
