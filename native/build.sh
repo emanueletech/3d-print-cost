@@ -20,5 +20,6 @@ PY
 cp Info.plist "$APP/Contents/Info.plist"
 cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
+xattr -cr "$APP"
 codesign --force --deep -s - "$APP"
 echo "Fatto: $APP  —  apri con:  open $APP"
