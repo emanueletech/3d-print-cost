@@ -45,7 +45,7 @@ enum Loc {
         "thEnergy": ["it":"Corrente","en":"Energy","es":"Energía","fr":"Énergie"],
         "thSpool": ["it":"Bobina","en":"Spool","es":"Bobina","fr":"Bobine"],
         "thQty": ["it":"Bobine","en":"Spools","es":"Bobinas","fr":"Bobines"],
-        "thUnit": ["it":"€/cad","en":"€/ea","es":"€/ud","fr":"€/pce"],
+        "thUnit": ["it":"€/bobina","en":"€/spool","es":"€/bobina","fr":"€/bobine"],
         "thTot": ["it":"Totale","en":"Total","es":"Total","fr":"Total"],
         "total": ["it":"Totale","en":"Total","es":"Total","fr":"Total"],
         "sColors": ["it":"Prezzo per bobina in base alla scelta filamento; sconti quantità Bambu applicati in automatico.",
