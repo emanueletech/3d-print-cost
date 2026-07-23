@@ -18,5 +18,7 @@ s=re.sub(r'MACHINE = .*','import os\nMACHINE = os.path.join(os.path.dirname(os.p
 open(p,"w").write(s)
 PY
 cp Info.plist "$APP/Contents/Info.plist"
+cp AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+
 codesign --force --deep -s - "$APP"
 echo "Fatto: $APP  —  apri con:  open $APP"
