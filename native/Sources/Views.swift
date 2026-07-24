@@ -645,35 +645,51 @@ struct MaterialsView: View {
                     .menuStyle(.borderedButton).controlSize(.small).fixedSize()
                 Button { m.materials = Store.defaultMaterials() } label: { Label(m.t("resetDefaults"), systemImage: "arrow.counterclockwise") }.buttonStyle(.bordered).controlSize(.small)
                 Spacer()
+                Menu {
+                    Button("Bambu Lab") { openURL("https://eu.store.bambulab.com/collections/pla") }
+                    Button("eSun") { openURL("https://www.esun3d.com/pla-pro-product/") }
+                    Button("Amazon") { openURL("https://www.amazon.it/s?k=filamento+pla+1kg") }
+                } label: { Label(m.t("checkOffers"), systemImage: "tag") }
+                    .menuStyle(.borderedButton).controlSize(.small).fixedSize()
             }
             GlassCard(pad: 6) {
                 VStack(spacing: 0) {
                     HStack {
-                        Text(m.t("mColor")).frame(width: 44, alignment: .leading)
+                        Text(m.t("mColor")).frame(width: 40, alignment: .leading)
                         Text(m.t("mName")).frame(maxWidth: .infinity, alignment: .leading)
-                        Text(m.t("mType")).frame(width: 110, alignment: .leading)
-                        Text(m.t("mCost")).frame(width: 80, alignment: .trailing)
-                        Text(m.t("mDensity")).frame(width: 100, alignment: .trailing)
-                        Text(m.t("mStock")).frame(width: 70, alignment: .trailing)
-                        Text("").frame(width: 30)
-                    }.font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.6).padding(.horizontal, 10).padding(.vertical, 9)
+                        Text(m.t("mType")).frame(width: 96, alignment: .leading)
+                        Text(m.t("mCost")).frame(width: 66, alignment: .trailing)
+                        Text(m.t("mSale")).frame(width: 84, alignment: .trailing)
+                        Text(m.t("mDensity")).frame(width: 86, alignment: .trailing)
+                        Text(m.t("mStock")).frame(width: 58, alignment: .trailing)
+                        Text("").frame(width: 26)
+                    }.font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.secondary).tracking(0.4).padding(.horizontal, 10).padding(.vertical, 9)
                     ForEach($m.materials) { $mat in
                         HStack {
                             ColorPicker("", selection: Binding(
                                 get: { Color(hex: mat.colorHex) },
-                                set: { mat.colorHex = $0.hex6 }), supportsOpacity: false).labelsHidden().frame(width: 44, alignment: .leading)
+                                set: { mat.colorHex = $0.hex6 }), supportsOpacity: false).labelsHidden().frame(width: 40, alignment: .leading)
                             TextField("", text: $mat.name).textFieldStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
-                            TextField("", text: $mat.type).textFieldStyle(.plain).frame(width: 110, alignment: .leading)
-                            TextField("", value: $mat.costPerKg, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 80)
-                            TextField("", value: $mat.densityGcm3, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 100)
-                            TextField("", value: Binding(get: { mat.stockKg ?? 0 }, set: { mat.stockKg = $0 }), format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 70)
-                            Button { m.materials.removeAll { $0.id == mat.id } } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).frame(width: 30)
+                            TextField("", text: $mat.type).textFieldStyle(.plain).frame(width: 96, alignment: .leading)
+                            TextField("", value: $mat.costPerKg, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 66)
+                            // offerta €/kg + badge
+                            HStack(spacing: 4) {
+                                if mat.onSale { Text(m.t("onSaleBadge")).font(.system(size: 8, weight: .bold)).foregroundStyle(.green).padding(.horizontal, 4).padding(.vertical, 1).background(Capsule().fill(.green.opacity(0.16))) }
+                                TextField("—", value: Binding(get: { mat.salePrice ?? 0 }, set: { mat.salePrice = $0 > 0 ? $0 : nil }), format: .number)
+                                    .textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 48)
+                                    .foregroundStyle(mat.onSale ? .green : .primary)
+                            }.frame(width: 84, alignment: .trailing)
+                            TextField("", value: $mat.densityGcm3, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 86)
+                            TextField("", value: Binding(get: { mat.stockKg ?? 0 }, set: { mat.stockKg = $0 }), format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 58)
+                            Button { m.materials.removeAll { $0.id == mat.id } } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).frame(width: 26)
                         }.font(.system(size: 13)).padding(.horizontal, 10).padding(.vertical, 6).overlay(Rectangle().fill(.white.opacity(0.06)).frame(height: 1), alignment: .top)
                     }
                 }
             }
+            Text(m.t("offersNote")).font(.system(size: 11)).foregroundStyle(.secondary)
         }
     }
+    func openURL(_ s: String) { if let u = URL(string: s) { NSWorkspace.shared.open(u) } }
 }
 
 // MARK: - Stampanti (database editabile)

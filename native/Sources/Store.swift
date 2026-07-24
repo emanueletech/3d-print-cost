@@ -30,9 +30,16 @@ struct Material: Identifiable, Codable, Hashable {
     var name: String
     var type: String        // "PLA Basic", "PLA Matte", "PETG", ...
     var colorHex: String    // "#RRGGBB"
-    var costPerKg: Double    // € per kg (materiale consumato)
+    var costPerKg: Double    // € per kg — prezzo di listino
     var densityGcm3: Double  // densità (per volume→peso e viceversa)
     var stockKg: Double?     // scorta disponibile (opzionale)
+    var salePrice: Double?   // € per kg in offerta (se presente, usato al posto del listino)
+    /// prezzo effettivo: l'offerta se c'è ed è più bassa, altrimenti il listino
+    var effectiveCostPerKg: Double {
+        if let s = salePrice, s > 0, s < costPerKg { return s }
+        return costPerKg
+    }
+    var onSale: Bool { if let s = salePrice, s > 0, s < costPerKg { return true }; return false }
 }
 
 struct PrinterProfile: Identifiable, Codable, Hashable {

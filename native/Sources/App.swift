@@ -115,6 +115,10 @@ enum Loc {
         "mStock": ["it":"Scorta kg","en":"Stock kg","es":"Stock kg","fr":"Stock kg"],
         "addMaterial": ["it":"Aggiungi materiale","en":"Add material","es":"Añadir material","fr":"Ajouter matériau"],
         "blankMaterial": ["it":"Vuoto (personalizzato)","en":"Blank (custom)","es":"Vacío (personalizado)","fr":"Vide (personnalisé)"],
+        "mSale": ["it":"Offerta €/kg","en":"Sale €/kg","es":"Oferta €/kg","fr":"Promo €/kg"],
+        "checkOffers": ["it":"Verifica offerte","en":"Check offers","es":"Ver ofertas","fr":"Voir offres"],
+        "onSaleBadge": ["it":"offerta","en":"sale","es":"oferta","fr":"promo"],
+        "offersNote": ["it":"Imposta il prezzo in offerta che trovi: verrà usato al posto del listino nel costo reale. I link aprono gli store per controllare le promo.","en":"Enter the sale price you find: it's used instead of list price in the real cost. Links open the stores to check promos.","es":"Introduce el precio de oferta: se usa en vez del de lista. Los enlaces abren las tiendas.","fr":"Saisissez le prix promo: utilisé au lieu du tarif. Les liens ouvrent les boutiques."],
         "resetDefaults": ["it":"Ripristina predefiniti","en":"Reset defaults","es":"Restaurar valores","fr":"Réinitialiser"],
         // stampanti
         "sPrinters": ["it":"Potenza, usura oraria e costo di avvio entrano nel costo reale.","en":"Wattage, hourly wear and startup cost feed the real cost.","es":"Potencia, desgaste y arranque entran en el coste real.","fr":"Puissance, usure et démarrage alimentent le coût réel."],
@@ -293,7 +297,7 @@ final class AppModel: ObservableObject {
     var cost: CostBreakdown {
         var b = CostBreakdown()
         for r in colorRows {
-            let perKg = material(forHex: r.hex, type: r.type)?.costPerKg ?? fallbackCostPerKg
+            let perKg = material(forHex: r.hex, type: r.type)?.effectiveCostPerKg ?? fallbackCostPerKg
             b.material += r.grams / 1000.0 * perKg
         }
         b.energy = energyCost
