@@ -138,6 +138,11 @@ enum Loc {
         "threshold": ["it":"Angolo sbalzo supporti (°)","en":"Support overhang angle (°)","es":"Ángulo voladizo (°)","fr":"Angle de surplomb (°)"],
         "sliceOriented": ["it":"Slica questa posa e aggiungi ai costi","en":"Slice this pose and add to costs","es":"Laminar esta pose y añadir","fr":"Découper cette pose et ajouter"],
         "orientHint": ["it":"Meno supporti = meno materiale sprecato e pulizia. Più bassa = più veloce e stabile.","en":"Fewer supports = less wasted material and cleanup. Lower = faster and more stable.","es":"Menos soportes = menos desperdicio. Más baja = más rápida.","fr":"Moins de supports = moins de gaspillage. Plus basse = plus rapide."],
+        // gruppi menu + selezione piatti
+        "grpProject": ["it":"Progetto","en":"Project","es":"Proyecto","fr":"Projet"],
+        "grpSettings": ["it":"Impostazioni","en":"Settings","es":"Ajustes","fr":"Réglages"],
+        "plateHint": ["it":"Tocca un piatto per includerlo o escluderlo dal calcolo.","en":"Tap a plate to include or exclude it from the totals.","es":"Toca una placa para incluirla o excluirla.","fr":"Touchez un plateau pour l'inclure ou l'exclure."],
+        "platesOn": ["it":"su","en":"of","es":"de","fr":"sur"],
     ]
 }
 
@@ -232,13 +237,15 @@ final class AppModel: ObservableObject {
     }
 
     var loaded: [LoadedFile] { files.filter { $0.analysis != nil } }
-    var totalSeconds: Double { loaded.reduce(0) { $0 + $1.analysis!.seconds } }
-    var totalGrams: Double { loaded.reduce(0) { $0 + $1.analysis!.grams } }
-    var totalPlates: Int { loaded.reduce(0) { $0 + $1.analysis!.plates.count } }
+    // aggregazione sui soli piatti INCLUSI (rispetta le esclusioni per file)
+    var includedPlates: [PlateInfo] { loaded.flatMap { $0.includedPlates } }
+    var totalSeconds: Double { includedPlates.reduce(0) { $0 + $1.seconds } }
+    var totalGrams: Double { includedPlates.reduce(0) { $0 + $1.grams } }
+    var totalPlates: Int { includedPlates.count }
 
     var colorRows: [ColorRow] {
         var per: [String: Double] = [:]
-        for f in loaded { for (k, g) in f.analysis!.perColor { per[k, default: 0] += g } }
+        for p in includedPlates { for (k, g) in p.colorGrams { per[k, default: 0] += g } }
         return per.map { (k, g) in
             let parts = k.split(separator: "|", maxSplits: 1).map(String.init)
             return ColorRow(hex: parts[0], type: parts.count > 1 ? parts[1] : "PLA Basic", grams: g)
@@ -287,7 +294,7 @@ final class AppModel: ObservableObject {
         var out: [MergeAdvice] = []
         for f in loaded {
             var groups: [String: [PlateInfo]] = [:]
-            for p in f.analysis!.plates {
+            for p in f.includedPlates {
                 if p.seconds > 6*3600 && p.grams > 300 { continue }
                 let key = p.colorKeys.sorted().joined(separator: "+")
                 groups[key.isEmpty ? "x" : key, default: []].append(p)
@@ -316,6 +323,10 @@ final class AppModel: ObservableObject {
         }
     }
     func remove(_ f: LoadedFile) { files.removeAll { $0.id == f.id } }
+    func togglePlate(_ f: LoadedFile, _ index: Int) {
+        if f.excluded.contains(index) { f.excluded.remove(index) } else { f.excluded.insert(index) }
+        objectWillChange.send()
+    }
     func slice(_ f: LoadedFile) {
         busy = String(format: t("busy"), f.name)
         let path = f.path

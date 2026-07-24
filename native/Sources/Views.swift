@@ -73,25 +73,11 @@ struct Sidebar: View {
                 }
             }.padding(.horizontal, 6).padding(.bottom, 12)
 
-            ForEach(AppModel.Section.allCases) { s in
-                Button { m.section = s } label: {
-                    HStack(spacing: 11) {
-                        Image(systemName: s.icon).font(.system(size: 13)).frame(width: 20)
-                            .foregroundStyle(m.section == s ? .white : .secondary)
-                        Text(m.t(s.locKey)).font(.system(size: 13.5, weight: m.section == s ? .semibold : .medium))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 12).padding(.vertical, 9)
-                    .foregroundStyle(m.section == s ? .white : .primary)
-                    .background {
-                        if m.section == s {
-                            RoundedRectangle(cornerRadius: 10)
-                                .fill(Color.accentColor.opacity(0.28))
-                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.accentColor.opacity(0.5)))
-                        }
-                    }
-                }.buttonStyle(.plain)
-            }
+            // gruppo Progetto
+            navGroup(m.t("grpProject"), [.overview, .files, .orient, .colors, .plates])
+            Spacer().frame(height: 14)
+            // gruppo Impostazioni (separato, stile iOS)
+            navGroup(m.t("grpSettings"), [.materials, .printers, .setup])
             Spacer()
             HStack(spacing: 8) {
                 Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundStyle(.yellow)
@@ -103,6 +89,32 @@ struct Sidebar: View {
         .frame(width: 224)
         .background(.ultraThinMaterial)
         .overlay(Rectangle().fill(.white.opacity(0.08)).frame(width: 1), alignment: .trailing)
+    }
+
+    @ViewBuilder func navGroup(_ title: String, _ items: [AppModel.Section]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title.uppercased()).font(.system(size: 10, weight: .semibold)).tracking(1.2)
+                .foregroundStyle(.secondary).padding(.horizontal, 12).padding(.bottom, 4)
+            ForEach(items) { s in
+                Button { m.section = s } label: {
+                    HStack(spacing: 11) {
+                        Image(systemName: s.icon).font(.system(size: 13)).frame(width: 20)
+                            .foregroundStyle(m.section == s ? .white : .secondary)
+                        Text(m.t(s.locKey)).font(.system(size: 13.5, weight: m.section == s ? .semibold : .medium))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .foregroundStyle(m.section == s ? .white : .primary)
+                    .background {
+                        if m.section == s {
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color.accentColor.opacity(0.28))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.accentColor.opacity(0.5)))
+                        }
+                    }
+                }.buttonStyle(.plain)
+            }
+        }
     }
 }
 
@@ -288,15 +300,16 @@ struct DonutView: View {
 struct SparkView: View {
     let files: [LoadedFile]
     var body: some View {
-        let sorted = files.sorted { $0.analysis!.seconds > $1.analysis!.seconds }
-        let maxS = sorted.first?.analysis!.seconds ?? 1
+        let secs: [(LoadedFile, Double)] = files.map { ($0, $0.includedPlates.reduce(0) { $0 + $1.seconds }) }
+            .filter { $0.1 > 0 }.sorted { $0.1 > $1.1 }
+        let maxS = secs.first?.1 ?? 1
         HStack(alignment: .bottom, spacing: 5) {
-            ForEach(sorted) { f in
+            ForEach(secs, id: \.0.id) { f, s in
                 VStack(spacing: 3) {
-                    Text("\(Int(f.analysis!.seconds/3600))h").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
+                    Text("\(Int(s/3600))h").font(.system(size: 9, weight: .semibold)).foregroundStyle(.secondary)
                     RoundedRectangle(cornerRadius: 4)
                         .fill(LinearGradient(colors: [.cyan, .blue], startPoint: .top, endPoint: .bottom))
-                        .frame(height: max(4, f.analysis!.seconds/maxS * 120))
+                        .frame(height: max(4, s/maxS * 120))
                 }
             }
         }.frame(maxWidth: .infinity, alignment: .bottom)
@@ -341,33 +354,45 @@ struct FileCard: View {
                     Image(systemName: "doc.fill").foregroundStyle(.secondary).font(.system(size: 13))
                     Text(f.name).font(.system(size: 14, weight: .medium)).lineLimit(1)
                     Spacer()
-                    if let a = f.analysis {
-                        stat("\(a.plates.count)", m.t("thPlates"))
-                        stat(hms(a.seconds), m.t("thTime"))
-                        stat("\(Int(a.grams)) g", m.t("thGrams"))
-                        stat(eur(a.seconds/3600*m.watts/1000*m.kwh), m.t("thEnergy"))
+                    if f.analysis != nil {
+                        let inc = f.includedPlates
+                        let secs = inc.reduce(0) { $0 + $1.seconds }
+                        let g = inc.reduce(0) { $0 + $1.grams }
+                        stat("\(inc.count)/\(f.analysis!.plates.count)", m.t("thPlates"))
+                        stat(hms(secs), m.t("thTime"))
+                        stat("\(Int(g)) g", m.t("thGrams"))
+                        stat(eur(secs/3600*m.watts/1000*m.kwh), m.t("thEnergy"))
                     } else {
                         Button(m.t("slice")) { m.slice(f) }.buttonStyle(.borderedProminent).controlSize(.small)
                     }
                     Button { m.remove(f) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary)
                 }
-                // striscia anteprime piatti
+                // striscia anteprime piatti — cliccabili per includere/escludere
                 if !f.thumbs.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(Array(f.thumbs.enumerated()), id: \.offset) { i, img in
-                                ZStack(alignment: .bottomLeading) {
-                                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
-                                        .frame(width: 62, height: 62).clipShape(RoundedRectangle(cornerRadius: 9))
-                                        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.white.opacity(0.14)))
-                                        .background(RoundedRectangle(cornerRadius: 9).fill(.black.opacity(0.15)))
-                                    Text("\(i+1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
-                                        .padding(.horizontal, 5).padding(.vertical, 1)
-                                        .background(Capsule().fill(.black.opacity(0.55))).padding(4)
-                                }
+                                let on = !f.excluded.contains(i+1)
+                                Button { m.togglePlate(f, i+1) } label: {
+                                    ZStack(alignment: .topTrailing) {
+                                        Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+                                            .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 9))
+                                            .background(RoundedRectangle(cornerRadius: 9).fill(.black.opacity(0.15)))
+                                            .saturation(on ? 1 : 0).opacity(on ? 1 : 0.4)
+                                            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(on ? Color.accentColor.opacity(0.9) : .white.opacity(0.12), lineWidth: on ? 2 : 1))
+                                        Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                            .font(.system(size: 14)).foregroundStyle(on ? Color.accentColor : .white.opacity(0.7))
+                                            .background(Circle().fill(.black.opacity(0.4))).padding(3)
+                                        Text("\(i+1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                                            .padding(.horizontal, 5).padding(.vertical, 1)
+                                            .background(Capsule().fill(.black.opacity(0.55)))
+                                            .padding(4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                                    }.frame(width: 64, height: 64)
+                                }.buttonStyle(.plain)
                             }
                         }.padding(.top, 1)
                     }
+                    Text(m.t("plateHint")).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
         }

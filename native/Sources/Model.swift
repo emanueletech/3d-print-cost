@@ -8,7 +8,8 @@ struct PlateInfo: Identifiable {
     let index: Int
     let seconds: Double
     let grams: Double
-    let colorKeys: [String]      // "#HEX|PLA Type"
+    let colorGrams: [String: Double]   // "#HEX|PLA Type" -> grammi su questo piatto
+    var colorKeys: [String] { Array(colorGrams.keys) }
 }
 
 struct ColorRow: Identifiable {
@@ -35,9 +36,11 @@ final class LoadedFile: Identifiable, ObservableObject {
     let path: String
     @Published var state: LoadState
     @Published var thumbs: [NSImage] = []      // anteprime dei piatti (dal 3mf)
+    @Published var excluded: Set<Int> = []     // indici piatti esclusi dal calcolo
     init(name: String, path: String, state: LoadState) {
         self.name = name; self.path = path; self.state = state
     }
+    var includedPlates: [PlateInfo] { (analysis?.plates ?? []).filter { !excluded.contains($0.index) } }
     var analysis: FileAnalysis? {
         if case let .sliced(a) = state { return a }; return nil
     }
@@ -145,17 +148,18 @@ enum Slicer {
                   let secs = Double(pred[1]) else { continue }
             let objs = matches("object identify_id=\"\\d+\" name=\"([^\"]+)\"", b).map { $0[1] }
             let trueSlot = objs.first.flatMap { proj.objSlot[$0] } ?? 1
-            var pg = 0.0; var keys = Set<String>()
+            var pg = 0.0; var plateColors: [String: Double] = [:]
             for f in matches("filament id=\"(\\d+)\"[^/]*?color=\"([^\"]+)\"[^/]*?used_g=\"([^\"]+)\"", b) {
                 let slot = (Int(f[1]) == 1) ? trueSlot : (Int(f[1]) ?? 1)
                 let hex = slot-1 < proj.slotColors.count ? proj.slotColors[slot-1] : f[2].uppercased()
                 let type = slot-1 < proj.slotTypes.count ? proj.slotTypes[slot-1] : "PLA Basic"
                 let g = Double(f[3]) ?? 0
                 let key = hex + "|" + type
-                perColor[key, default: 0] += g; pg += g; grams += g; keys.insert(key)
+                perColor[key, default: 0] += g; pg += g; grams += g
+                plateColors[key, default: 0] += g
             }
             seconds += secs
-            plates.append(PlateInfo(index: plates.count+1, seconds: secs, grams: pg, colorKeys: Array(keys)))
+            plates.append(PlateInfo(index: plates.count+1, seconds: secs, grams: pg, colorGrams: plateColors))
         }
         if plates.isEmpty { return .notSliced }
         return .sliced(FileAnalysis(plates: plates, seconds: seconds, grams: grams, perColor: perColor))
