@@ -317,25 +317,12 @@ struct FilesView: View {
             .buttonStyle(.plain)
             .background(RoundedRectangle(cornerRadius: 15).strokeBorder(.blue.opacity(0.5), style: StrokeStyle(lineWidth: 1.5, dash: [6])).background(Color.blue.opacity(0.08).cornerRadius(15)))
 
-            GlassCard(pad: 6) {
-                VStack(spacing: 0) {
-                    header([("thFile", nil), ("thPlates", 60), ("thTime", 90), ("thGrams", 80), ("thEnergy", 90), (nil, 92)])
-                    if m.files.isEmpty {
-                        Text(m.t("noFiles")).foregroundStyle(.secondary).font(.system(size: 13)).padding(18)
-                    }
-                    ForEach(m.files) { f in FileRow(f: f) }
-                }
+            if m.files.isEmpty {
+                GlassCard { Text(m.t("noFiles")).foregroundStyle(.secondary).font(.system(size: 13)).padding(18).frame(maxWidth: .infinity) }
+            } else {
+                VStack(spacing: 11) { ForEach(m.files) { f in FileCard(f: f) } }
             }
         }
-    }
-    @ViewBuilder func header(_ cols: [(String?, CGFloat?)]) -> some View {
-        HStack {
-            ForEach(Array(cols.enumerated()), id: \.offset) { _, c in
-                let t = c.0.map { m.t($0) } ?? ""
-                if let w = c.1 { Text(t).frame(width: w, alignment: .trailing) }
-                else { Text(t).frame(maxWidth: .infinity, alignment: .leading) }
-            }
-        }.font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.8).padding(.horizontal, 10).padding(.vertical, 9)
     }
     func pick() {
         let p = NSOpenPanel(); p.allowedContentTypes = [UTType("com.microsoft.3mf") ?? .data]
@@ -344,30 +331,52 @@ struct FilesView: View {
     }
 }
 
-struct FileRow: View {
+struct FileCard: View {
     @EnvironmentObject var m: AppModel
     @ObservedObject var f: LoadedFile
     var body: some View {
-        HStack {
-            Text(f.name).frame(maxWidth: .infinity, alignment: .leading).lineLimit(1)
-            if let a = f.analysis {
-                Text("\(a.plates.count)").frame(width: 60, alignment: .trailing)
-                Text(hms(a.seconds)).frame(width: 90, alignment: .trailing)
-                Text("\(Int(a.grams))").frame(width: 80, alignment: .trailing)
-                Text(eur(a.seconds/3600*m.watts/1000*m.kwh)).frame(width: 90, alignment: .trailing)
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green).font(.system(size: 13))
+        GlassCard(pad: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 12) {
+                    Image(systemName: "doc.fill").foregroundStyle(.secondary).font(.system(size: 13))
+                    Text(f.name).font(.system(size: 14, weight: .medium)).lineLimit(1)
+                    Spacer()
+                    if let a = f.analysis {
+                        stat("\(a.plates.count)", m.t("thPlates"))
+                        stat(hms(a.seconds), m.t("thTime"))
+                        stat("\(Int(a.grams)) g", m.t("thGrams"))
+                        stat(eur(a.seconds/3600*m.watts/1000*m.kwh), m.t("thEnergy"))
+                    } else {
+                        Button(m.t("slice")) { m.slice(f) }.buttonStyle(.borderedProminent).controlSize(.small)
+                    }
                     Button { m.remove(f) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary)
-                }.frame(width: 92, alignment: .trailing)
-            } else {
-                ForEach([60.0,90,80,90], id: \.self) { w in Text("—").frame(width: w, alignment: .trailing) }
-                HStack(spacing: 8) {
-                    Button(m.t("slice")) { m.slice(f) }.buttonStyle(.borderedProminent).controlSize(.small)
-                    Button { m.remove(f) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary)
-                }.frame(width: 92, alignment: .trailing)
+                }
+                // striscia anteprime piatti
+                if !f.thumbs.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(Array(f.thumbs.enumerated()), id: \.offset) { i, img in
+                                ZStack(alignment: .bottomLeading) {
+                                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+                                        .frame(width: 62, height: 62).clipShape(RoundedRectangle(cornerRadius: 9))
+                                        .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.white.opacity(0.14)))
+                                        .background(RoundedRectangle(cornerRadius: 9).fill(.black.opacity(0.15)))
+                                    Text("\(i+1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
+                                        .padding(.horizontal, 5).padding(.vertical, 1)
+                                        .background(Capsule().fill(.black.opacity(0.55))).padding(4)
+                                }
+                            }
+                        }.padding(.top, 1)
+                    }
+                }
             }
-        }.font(.system(size: 13)).padding(.horizontal, 10).padding(.vertical, 9)
-            .overlay(Rectangle().fill(.white.opacity(0.06)).frame(height: 1), alignment: .top)
+        }
+    }
+    @ViewBuilder func stat(_ v: String, _ k: String) -> some View {
+        VStack(alignment: .trailing, spacing: 1) {
+            Text(v).font(.system(size: 13, weight: .semibold)).monospacedDigit()
+            Text(k.uppercased()).font(.system(size: 8.5, weight: .semibold)).foregroundStyle(.secondary).tracking(0.5)
+        }.frame(minWidth: 56, alignment: .trailing)
     }
 }
 

@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 
 // MARK: - Strutture dati
 
@@ -33,6 +34,7 @@ final class LoadedFile: Identifiable, ObservableObject {
     let name: String
     let path: String
     @Published var state: LoadState
+    @Published var thumbs: [NSImage] = []      // anteprime dei piatti (dal 3mf)
     init(name: String, path: String, state: LoadState) {
         self.name = name; self.path = path; self.state = state
     }
@@ -206,6 +208,24 @@ enum Slicer {
             "--export-3mf", "sliced.3mf", "--outputdir", tmp, file])
         guard code == 0, FileManager.default.fileExists(atPath: tmp + "/sliced.3mf") else { return .error("sliceFail") }
         return analyze(tmp + "/sliced.3mf")
+    }
+
+    /// Anteprime dei piatti dentro un 3mf (Metadata/plate_N.png), ordinate per piatto.
+    static func thumbnails(_ file: String) -> [NSImage] {
+        let (code, out) = run("/usr/bin/unzip", ["-Z1", file])
+        guard code == 0, let list = String(data: out, encoding: .utf8) else { return [] }
+        let names = list.split(separator: "\n").map(String.init)
+            .filter { $0.range(of: #"^Metadata/plate_\d+\.png$"#, options: .regularExpression) != nil }
+            .sorted { a, b in
+                func n(_ s: String) -> Int { Int(s.replacingOccurrences(of: "Metadata/plate_", with: "").replacingOccurrences(of: ".png", with: "")) ?? 0 }
+                return n(a) < n(b)
+            }
+        var imgs: [NSImage] = []
+        for entry in names {
+            let (c, data) = run("/usr/bin/unzip", ["-p", file, entry])
+            if c == 0, !data.isEmpty, let img = NSImage(data: data) { imgs.append(img) }
+        }
+        return imgs
     }
 
     /// Converte STEP→STL con Bambu Studio (che importa lo STEP), restituisce il path STL.

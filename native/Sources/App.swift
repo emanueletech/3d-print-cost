@@ -306,7 +306,13 @@ final class AppModel: ObservableObject {
         for p in paths where p.lowercased().hasSuffix(".3mf") {
             let name = (p as NSString).lastPathComponent
             if files.contains(where: { $0.path == p }) { continue }
-            files.append(LoadedFile(name: name, path: p, state: Slicer.analyze(p)))
+            let lf = LoadedFile(name: name, path: p, state: Slicer.analyze(p))
+            files.append(lf)
+            // anteprime piatti in background (non bloccano l'interfaccia)
+            Task.detached {
+                let imgs = Slicer.thumbnails(p)
+                await MainActor.run { lf.thumbs = imgs }
+            }
         }
     }
     func remove(_ f: LoadedFile) { files.removeAll { $0.id == f.id } }
