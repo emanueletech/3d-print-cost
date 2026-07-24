@@ -50,7 +50,10 @@ enum Store {
     }
 
     static func load() -> StoreData {
-        if let d = try? Data(contentsOf: url), let s = try? JSONDecoder().decode(StoreData.self, from: d) {
+        if let d = try? Data(contentsOf: url), var s = try? JSONDecoder().decode(StoreData.self, from: d) {
+            // migrazione non distruttiva: aggiunge stampanti predefinite nuove mancanti (per nome)
+            let have = Set(s.printers.map { $0.name })
+            for p in defaultPrinters() where !have.contains(p.name) { s.printers.append(p) }
             return s
         }
         return StoreData(materials: defaultMaterials(), printers: defaultPrinters(), failurePct: 7, kwh: 0.209)
@@ -94,7 +97,9 @@ enum Store {
             p("Bambu Lab H2C", 180, 0.12), p("Bambu Lab H2D", 180, 0.14),
             p("Bambu Lab H2D Pro", 200, 0.16), p("Bambu Lab H2S", 160, 0.11),
             p("Bambu Lab X1C", 110, 0.10), p("Bambu Lab P1S", 105, 0.06),
-            p("Bambu Lab A1", 80, 0.04), p("Altra", 120, 0.08),
+            p("Bambu Lab A1", 80, 0.04),
+            p("Snapmaker U1", 150, 0.10),   // tool-changer multicolore; media PLA ~150 W (picco 1150 W)
+            p("Altra", 120, 0.08),
         ]
     }
 }
