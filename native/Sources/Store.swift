@@ -3,7 +3,9 @@ import CryptoKit
 
 // MARK: - Verifica token di sblocco (HMAC condiviso col bot)
 enum Verify {
-    /// token = "<expiryUnix>.<hmacSHA256(secret, expiryUnix) in hex>" — valido se firma ok e non scaduto
+    static let window: Int64 = 300   // finestra codice (s)
+
+    /// token = "<expiryUnix>.<hmacSHA256(secret, expiryUnix) in hex>" — per il deep-link (Mac)
     static func validToken(_ token: String) -> Bool {
         let parts = token.split(separator: ".", maxSplits: 1).map(String.init)
         guard parts.count == 2, let exp = Double(parts[0]) else { return false }
@@ -12,6 +14,21 @@ enum Verify {
         let mac = HMAC<SHA256>.authenticationCode(for: Data(parts[0].utf8), using: key)
         let hex = mac.map { String(format: "%02x", $0) }.joined()
         return hex == parts[1].lowercased()
+    }
+
+    /// codice corto per finestra temporale (uguale nel bot): primi 6 hex dell'HMAC(secret, window)
+    static func windowCode(_ w: Int64) -> String {
+        let key = SymmetricKey(data: Data(Author.unlockSecret.utf8))
+        let mac = HMAC<SHA256>.authenticationCode(for: Data(String(w).utf8), using: key)
+        return String(mac.map { String(format: "%02x", $0) }.joined().prefix(6)).uppercased()
+    }
+    /// valido per la finestra corrente e le 2 precedenti (~15 min), verificato offline
+    static func validCode(_ input: String) -> Bool {
+        let s = input.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        guard s.count == 6 else { return false }
+        let now = Int64(Date().timeIntervalSince1970) / window
+        for d in Int64(0)...2 where s == windowCode(now - d) { return true }
+        return false
     }
 }
 

@@ -57,6 +57,8 @@ struct RootView: View {
 
 struct GateView: View {
     @EnvironmentObject var m: AppModel
+    @State private var code = ""
+    @State private var codeWrong = false
     var body: some View {
         ZStack {
             AuroraBackground()
@@ -86,6 +88,21 @@ struct GateView: View {
                     follow("cube.fill", "MakerWorld", .orange, Author.makerworld)
                     follow("play.rectangle.fill", "YouTube", .red, Author.youtube)
                 }
+                // codice per chi legge il bot dal telefono
+                VStack(spacing: 6) {
+                    Text(m.t("gateCodeMobile")).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        TextField(m.t("gateCodePlaceholder"), text: $code)
+                            .textFieldStyle(.plain).font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .multilineTextAlignment(.center).frame(width: 130)
+                            .padding(.vertical, 8).background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.12)))
+                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(codeWrong ? Color.red : .white.opacity(0.2)))
+                            .onSubmit(submitCode)
+                        Button(m.t("gateUnlock")) { submitCode() }.buttonStyle(.borderedProminent).controlSize(.regular)
+                    }
+                    if codeWrong { Text(m.t("gateCodeWrong")).font(.system(size: 11)).foregroundStyle(.red) }
+                }
+
                 if Author.allowHonorUnlock {
                     Button(m.t("gateHonor")) { m.unlockHonor() }.buttonStyle(.bordered).controlSize(.small)
                 }
@@ -103,6 +120,7 @@ struct GateView: View {
         }
         .preferredColorScheme(.dark)
     }
+    func submitCode() { withAnimation { codeWrong = !m.tryUnlockCode(code) } }
     @ViewBuilder func follow(_ icon: String, _ name: String, _ tint: Color, _ url: String) -> some View {
         Button { m.openSocial(url) } label: {
             VStack(spacing: 6) {
