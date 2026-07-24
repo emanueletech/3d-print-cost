@@ -180,10 +180,10 @@ struct OverviewView: View {
                 StatCard(icon: "cube.fill", tint: .purple, k: m.t("kMat"),
                     v: m.loaded.isEmpty ? "—" : String(format:"%.1f kg", m.totalGrams/1000),
                     d: m.colorRows.isEmpty ? "" : "\(m.colorRows.count) \(m.t("colors"))")
+                StatCard(icon: "eurosign.circle.fill", tint: .green, k: m.t("matReal"),
+                    v: m.loaded.isEmpty ? "—" : eur(m.cost.material), d: m.loaded.isEmpty ? "" : m.t("matUsed"))
                 StatCard(icon: "cylinder.fill", tint: .teal, k: m.t("kSpools"),
-                    v: m.loaded.isEmpty ? "—" : "\(m.totalSpools)", d: m.t("refills"))
-                StatCard(icon: "eurosign.circle.fill", tint: .green, k: m.t("kFil"),
-                    v: m.loaded.isEmpty ? "—" : eur(m.filamentCost), d: m.loaded.isEmpty ? "" : m.unitPrice.label)
+                    v: m.loaded.isEmpty ? "—" : "\(m.totalSpools)", d: m.loaded.isEmpty ? "" : "\(eur(m.filamentCost)) · \(m.t("ifBuy"))")
                 StatCard(icon: "bolt.fill", tint: .orange, k: m.t("kEnergy"),
                     v: m.loaded.isEmpty ? "—" : eur(m.energyCost), d: m.loaded.isEmpty ? "" : String(format:"%.1f kWh", m.kWh))
                 StatCard(icon: "square.grid.3x3.fill", tint: .pink, k: m.t("kPlates"),

@@ -100,6 +100,9 @@ enum Loc {
         "cFailure": ["it":"Fallimenti","en":"Failures","es":"Fallos","fr":"Échecs"],
         "cTotal": ["it":"Costo reale totale","en":"Total real cost","es":"Coste real total","fr":"Coût réel total"],
         "cUpfront": ["it":"Bobine da comprare (spesa iniziale)","en":"Spools to buy (upfront)","es":"Bobinas a comprar (inicial)","fr":"Bobines à acheter (initial)"],
+        "matReal": ["it":"Materiale (reale)","en":"Material (real)","es":"Material (real)","fr":"Matériau (réel)"],
+        "matUsed": ["it":"consumato in stampa","en":"used in this print","es":"usado en impresión","fr":"utilisé à l'impression"],
+        "ifBuy": ["it":"se le compri","en":"if you buy them","es":"si las compras","fr":"si vous les achetez"],
         // materiali
         "sMaterials": ["it":"Il costo reale usa il €/kg e la densità del materiale abbinato a ogni colore.","en":"Real cost uses each color's material €/kg and density.","es":"El coste real usa €/kg y densidad de cada material.","fr":"Le coût réel utilise le €/kg et la densité de chaque matériau."],
         "mName": ["it":"Nome","en":"Name","es":"Nombre","fr":"Nom"],
@@ -183,10 +186,35 @@ final class AppModel: ObservableObject {
     }
     var selectedPrinter: PrinterProfile? { printersDB.first { $0.id == selPrinterID } ?? printersDB.first }
 
-    /// materiale associato a un colore del progetto (per costo consumato a €/kg)
+    /// materiale associato a un colore del progetto (per costo consumato a €/kg):
+    /// match esatto sull'hex, altrimenti il colore più vicino (entro soglia), altrimenti nil.
     func material(forHex hex: String, type: String) -> Material? {
-        materials.first { $0.colorHex.uppercased() == hex.uppercased() && $0.type == type }
-        ?? materials.first { $0.colorHex.uppercased() == hex.uppercased() }
+        let up = hex.uppercased()
+        if let m = materials.first(where: { $0.colorHex.uppercased() == up && $0.type == type }) { return m }
+        if let m = materials.first(where: { $0.colorHex.uppercased() == up }) { return m }
+        // colore più vicino, preferendo lo stesso tipo
+        func rgb(_ h: String) -> (Double,Double,Double)? {
+            var s = h.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+            if s.count == 3 { s = s.map { "\($0)\($0)" }.joined() }
+            guard s.count == 6, let v = UInt64(s, radix: 16) else { return nil }
+            return (Double((v>>16)&0xff), Double((v>>8)&0xff), Double(v&0xff))
+        }
+        guard let c = rgb(up) else { return nil }
+        var best: (Material, Double)? = nil
+        for m in materials {
+            guard let mc = rgb(m.colorHex) else { continue }
+            var d = pow(c.0-mc.0,2)+pow(c.1-mc.1,2)+pow(c.2-mc.2,2)
+            if m.type != type { d += 1200 }   // penalità tipo diverso
+            if best == nil || d < best!.1 { best = (m, d) }
+        }
+        // accetta solo se ragionevolmente vicino (distanza RGB² < ~40² su un canale medio)
+        if let b = best, b.1 < 4800 { return b.0 }
+        return nil
+    }
+
+    /// €/kg di ripiego quando un colore non è in database (prezzo pieno di una bobina 1 kg)
+    var fallbackCostPerKg: Double {
+        switch source { case .bambuRefill: msrp; case .bambuSpool: spoolPrice; case .other: otherPrice }
     }
 
     enum Section: String, CaseIterable, Identifiable {
@@ -241,7 +269,7 @@ final class AppModel: ObservableObject {
     var cost: CostBreakdown {
         var b = CostBreakdown()
         for r in colorRows {
-            let perKg = material(forHex: r.hex, type: r.type)?.costPerKg ?? unitPrice.price
+            let perKg = material(forHex: r.hex, type: r.type)?.costPerKg ?? fallbackCostPerKg
             b.material += r.grams / 1000.0 * perKg
         }
         b.energy = energyCost
