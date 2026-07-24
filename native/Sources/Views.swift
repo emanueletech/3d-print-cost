@@ -117,6 +117,7 @@ struct Detail: View {
                 switch m.section {
                 case .overview: OverviewView()
                 case .files: FilesView()
+                case .orient: OrientView()
                 case .colors: ColorsView()
                 case .materials: MaterialsView()
                 case .printers: PrintersView()
@@ -644,5 +645,78 @@ extension Color {
     var hex6: String {
         let ns = NSColor(self).usingColorSpace(.sRGB) ?? .gray
         return String(format: "#%02X%02X%02X", Int(ns.redComponent*255), Int(ns.greenComponent*255), Int(ns.blueComponent*255))
+    }
+}
+
+// MARK: - Orienta 3D (STL/STEP/OBJ)
+
+struct OrientView: View {
+    @EnvironmentObject var m: AppModel
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(m.t("sOrient")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+            HStack {
+                Button { pick() } label: { Label(m.t("loadModel"), systemImage: "arrow.down.doc") }
+                    .buttonStyle(.borderedProminent).controlSize(.regular)
+                if m.meshName != nil {
+                    Text(m.meshName!).font(.system(size: 13, weight: .medium)).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            if let mesh = m.mesh {
+                HStack(alignment: .top, spacing: 14) {
+                    GlassCard(pad: 4) {
+                        MeshSceneView(mesh: mesh, supportThreshold: m.supportThreshold)
+                            .frame(height: 340).clipShape(RoundedRectangle(cornerRadius: 14))
+                    }.frame(maxWidth: .infinity)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        // soglia
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(m.t("threshold").uppercased()).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.8)
+                                HStack { Slider(value: $m.supportThreshold, in: 20...70, step: 5); Text("\(Int(m.supportThreshold))°").frame(width: 40) }
+                                Text(m.t("orientHint")).font(.system(size: 11)).foregroundStyle(.secondary)
+                            }
+                        }
+                        // pose
+                        GlassCard(pad: 6) {
+                            VStack(spacing: 0) {
+                                HStack {
+                                    Text(m.t("poseName")).frame(maxWidth: .infinity, alignment: .leading)
+                                    Text(m.t("poseHeight")).frame(width: 56, alignment: .trailing)
+                                    Text(m.t("poseSupport")).frame(width: 74, alignment: .trailing)
+                                }.font(.system(size: 9.5, weight: .semibold)).foregroundStyle(.secondary).tracking(0.6).padding(.horizontal, 8).padding(.vertical, 7)
+                                ForEach(Array(m.poses.enumerated()), id: \.offset) { idx, p in
+                                    Button { m.applyPose(p) } label: {
+                                        HStack {
+                                            HStack(spacing: 6) {
+                                                if idx == 0 { Text(m.t("poseBest")).font(.system(size: 9, weight: .bold)).foregroundStyle(.green).padding(.horizontal, 6).padding(.vertical, 1).background(Capsule().fill(.green.opacity(0.16))) }
+                                                Text(p.name).font(.system(size: 12.5, weight: m.chosenPose == p.name ? .bold : .regular))
+                                            }.frame(maxWidth: .infinity, alignment: .leading)
+                                            Text(String(format: "%.0f", p.height)).font(.system(size: 12)).frame(width: 56, alignment: .trailing)
+                                            Text(String(format: "%.0f mm²", p.supportArea)).font(.system(size: 12)).foregroundStyle(p.supportArea < 1 ? .green : .primary).frame(width: 74, alignment: .trailing)
+                                        }.padding(.horizontal, 8).padding(.vertical, 7)
+                                        .background(m.chosenPose == p.name ? Color.accentColor.opacity(0.14) : .clear)
+                                    }.buttonStyle(.plain).overlay(Rectangle().fill(.white.opacity(0.06)).frame(height: 1), alignment: .top)
+                                }
+                            }
+                        }
+                        Button { m.sliceOriented() } label: {
+                            Label(m.t("sliceOriented"), systemImage: "square.and.arrow.down.on.square").frame(maxWidth: .infinity)
+                        }.buttonStyle(.borderedProminent).controlSize(.large)
+                    }.frame(width: 320)
+                }
+            } else {
+                GlassCard { Text(m.t("noModel")).foregroundStyle(.secondary).font(.system(size: 13)).padding(30).frame(maxWidth: .infinity) }
+            }
+        }
+    }
+    func pick() {
+        let p = NSOpenPanel()
+        p.allowedContentTypes = [UTType(filenameExtension: "stl"), UTType(filenameExtension: "obj"),
+                                 UTType(filenameExtension: "step"), UTType(filenameExtension: "stp")].compactMap { $0 }
+        p.allowsMultipleSelection = false; p.canChooseFiles = true
+        if p.runModal() == .OK, let u = p.urls.first { m.loadMesh(u.path) }
     }
 }

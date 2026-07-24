@@ -191,4 +191,31 @@ enum Slicer {
         guard ok else { return .error("sliceFail") }
         return analyze(tmp + "/sliced.3mf")
     }
+
+    /// Slicing di un file mesh singolo (STL/OBJ/STEP) col profilo H2C, mono-materiale PLA Basic.
+    static func sliceRaw(_ file: String) -> LoadState {
+        guard FileManager.default.fileExists(atPath: bambu) else { return .error("noBambu") }
+        let res = resourcesDir(); let prof = res + "/profiles"
+        let tmp = NSTemporaryDirectory() + "sliceraw-" + UUID().uuidString
+        try? FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(atPath: tmp) }
+        let (code, _) = run(bambu, [
+            "--load-settings", "\(prof)/machine_H2C_04.json;\(prof)/process_020_H2C.json",
+            "--load-filaments", "\(prof)/fil_PLA_Basic_H2C.json",
+            "--arrange", "1", "--slice", "0", "--debug", "1",
+            "--export-3mf", "sliced.3mf", "--outputdir", tmp, file])
+        guard code == 0, FileManager.default.fileExists(atPath: tmp + "/sliced.3mf") else { return .error("sliceFail") }
+        return analyze(tmp + "/sliced.3mf")
+    }
+
+    /// Converte STEP→STL con Bambu Studio (che importa lo STEP), restituisce il path STL.
+    static func stepToSTL(_ file: String) -> String? {
+        guard FileManager.default.fileExists(atPath: bambu) else { return nil }
+        let outdir = NSTemporaryDirectory() + "step-" + UUID().uuidString
+        try? FileManager.default.createDirectory(atPath: outdir, withIntermediateDirectories: true)
+        let (code, _) = run(bambu, ["--export-stls", outdir, file])
+        guard code == 0 else { return nil }
+        let stls = (try? FileManager.default.contentsOfDirectory(atPath: outdir))?.filter { $0.hasSuffix(".stl") } ?? []
+        return stls.first.map { outdir + "/" + $0 }
+    }
 }

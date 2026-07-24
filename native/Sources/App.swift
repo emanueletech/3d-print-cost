@@ -1,6 +1,7 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import AppKit
+import simd
 
 // MARK: - Lingue
 
@@ -121,6 +122,19 @@ enum Loc {
         "fFailure": ["it":"Tasso di fallimento stampe (%)","en":"Print failure rate (%)","es":"Tasa de fallos (%)","fr":"Taux d'échec (%)"],
         "failureNote": ["it":"Quota aggiunta al costo per coprire le stampe fallite/riprovate.","en":"Added to cost to cover failed/retried prints.","es":"Añadido al coste para cubrir fallos.","fr":"Ajouté au coût pour couvrir les échecs."],
         "wearHint": ["it":"Usura = prezzo macchina ÷ ore di vita utile. Es. 1500€ / 12000h ≈ 0,12 €/h.","en":"Wear = machine price ÷ useful-life hours. E.g. 1500€ / 12000h ≈ 0.12 €/h.","es":"Desgaste = precio ÷ horas de vida. Ej. 1500€ / 12000h ≈ 0,12 €/h.","fr":"Usure = prix ÷ heures de vie. Ex. 1500€ / 12000h ≈ 0,12 €/h."],
+        // orientamento 3D
+        "nOrient": ["it":"Orienta 3D","en":"3D orient","es":"Orientar 3D","fr":"Orienter 3D"],
+        "sOrient": ["it":"Carica STL / STEP / OBJ: ti mostro come orientarlo per meno supporti, poi lo slico e lo aggiungo ai costi.","en":"Load STL / STEP / OBJ: see how to orient it for fewer supports, then slice it into the costs.","es":"Carga STL / STEP / OBJ: te muestro cómo orientarlo con menos soportes y lo laminó.","fr":"Chargez STL / STEP / OBJ: voyez comment l'orienter avec moins de supports, puis découpe."],
+        "loadModel": ["it":"Carica modello 3D","en":"Load 3D model","es":"Cargar modelo 3D","fr":"Charger modèle 3D"],
+        "noModel": ["it":"Nessun modello caricato.","en":"No model loaded.","es":"Ningún modelo cargado.","fr":"Aucun modèle chargé."],
+        "poseName": ["it":"Posa","en":"Pose","es":"Pose","fr":"Pose"],
+        "poseHeight": ["it":"Altezza","en":"Height","es":"Altura","fr":"Hauteur"],
+        "poseSupport": ["it":"Supporti","en":"Supports","es":"Soportes","fr":"Supports"],
+        "poseFootprint": ["it":"Base","en":"Footprint","es":"Base","fr":"Base"],
+        "poseBest": ["it":"Consigliata","en":"Best","es":"Mejor","fr":"Meilleure"],
+        "threshold": ["it":"Angolo sbalzo supporti (°)","en":"Support overhang angle (°)","es":"Ángulo voladizo (°)","fr":"Angle de surplomb (°)"],
+        "sliceOriented": ["it":"Slica questa posa e aggiungi ai costi","en":"Slice this pose and add to costs","es":"Laminar esta pose y añadir","fr":"Découper cette pose et ajouter"],
+        "orientHint": ["it":"Meno supporti = meno materiale sprecato e pulizia. Più bassa = più veloce e stabile.","en":"Fewer supports = less wasted material and cleanup. Lower = faster and more stable.","es":"Menos soportes = menos desperdicio. Más baja = más rápida.","fr":"Moins de supports = moins de gaspillage. Plus basse = plus rapide."],
     ]
 }
 
@@ -176,12 +190,13 @@ final class AppModel: ObservableObject {
     }
 
     enum Section: String, CaseIterable, Identifiable {
-        case overview, files, colors, materials, printers, plates, setup
+        case overview, files, orient, colors, materials, printers, plates, setup
         var id: String { rawValue }
-        var locKey: String { ["overview":"nOverview","files":"nFiles","colors":"nColors","materials":"nMaterials","printers":"nPrinters","plates":"nPlates","setup":"nSetup"][rawValue]! }
+        var locKey: String { ["overview":"nOverview","files":"nFiles","orient":"nOrient","colors":"nColors","materials":"nMaterials","printers":"nPrinters","plates":"nPlates","setup":"nSetup"][rawValue]! }
         var icon: String {
             switch self {
-            case .overview: "square.grid.2x2.fill"; case .files: "doc.fill"; case .colors: "paintpalette.fill"
+            case .overview: "square.grid.2x2.fill"; case .files: "doc.fill"; case .orient: "rotate.3d.fill"
+            case .colors: "paintpalette.fill"
             case .materials: "cylinder.split.1x2.fill"; case .printers: "printer.fill"
             case .plates: "puzzlepiece.fill"; case .setup: "gearshape.fill"
             }
@@ -273,6 +288,61 @@ final class AppModel: ObservableObject {
         Task.detached {
             let st = Slicer.slice(path)
             await MainActor.run { f.state = st; self.objectWillChange.send(); self.busy = nil }
+        }
+    }
+
+    // MARK: - Orientamento 3D (STL/OBJ/STEP)
+    @Published var meshName: String? = nil
+    @Published var baseMesh: Mesh? = nil        // originale (non ruotato)
+    @Published var mesh: Mesh? = nil            // posa corrente, appoggiata al piatto
+    @Published var poses: [PoseStats] = []
+    @Published var chosenPose: String? = nil
+    @Published var supportThreshold: Double = 45 { didSet { recomputePoses() } }
+
+    func loadMesh(_ path: String) {
+        let ext = (path as NSString).pathExtension.lowercased()
+        busy = "Carico \(( path as NSString).lastPathComponent)…"
+        Task.detached {
+            var p = path
+            if ext == "step" || ext == "stp" { p = Slicer.stepToSTL(path) ?? path }
+            let mesh = MeshLoader.load(p)
+            await MainActor.run {
+                self.busy = nil
+                guard let mesh else { return }
+                self.baseMesh = mesh
+                self.meshName = (path as NSString).lastPathComponent
+                self.chosenPose = "Originale"
+                self.mesh = mesh.onBed()
+                self.recomputePoses()
+                self.section = .orient
+            }
+        }
+    }
+    func recomputePoses() {
+        guard let bm = baseMesh else { poses = []; return }
+        poses = Orient.candidates(bm, thresholdDeg: Float(supportThreshold)).sorted { $0.supportArea < $1.supportArea }
+    }
+    func applyPose(_ p: PoseStats) {
+        guard let bm = baseMesh else { return }
+        chosenPose = p.name
+        mesh = bm.rotated(p.rot).onBed()
+    }
+    func sliceOriented() {
+        guard let mesh, let name = meshName else { return }
+        busy = String(format: t("busy"), name)
+        Task.detached {
+            let tmp = NSTemporaryDirectory() + "orient-\(UUID().uuidString).stl"
+            _ = mesh.exportSTLbinary(to: tmp)
+            let st = Slicer.sliceRaw(tmp)
+            try? FileManager.default.removeItem(atPath: tmp)
+            await MainActor.run {
+                self.busy = nil
+                if case .sliced = st {
+                    let lf = LoadedFile(name: name, path: "mesh:" + name, state: st)
+                    self.files.append(lf)
+                    self.section = .overview
+                }
+            }
         }
     }
 }
