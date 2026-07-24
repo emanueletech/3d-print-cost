@@ -133,6 +133,10 @@ enum Loc {
         "gateUnlock": ["it":"Sblocca l'app","en":"Unlock the app","es":"Desbloquear","fr":"Déverrouiller"],
         "gateWrong": ["it":"Codice non valido. Controlla sul profilo/canale che segui.","en":"Invalid code. Check on the profile/channel you follow.","es":"Código no válido. Míralo en el perfil/canal.","fr":"Code invalide. Vérifiez sur le profil/canal."],
         "gateThanks": ["it":"Grazie per il supporto! 🙌","en":"Thanks for the support! 🙌","es":"¡Gracias por el apoyo! 🙌","fr":"Merci pour le soutien ! 🙌"],
+        "gateTelegram": ["it":"Sblocca con Telegram","en":"Unlock with Telegram","es":"Desbloquear con Telegram","fr":"Déverrouiller avec Telegram"],
+        "gateTgHint": ["it":"Iscriviti al canale e il bot sblocca l'app da solo — nessun codice da scrivere.","en":"Join the channel and the bot unlocks the app for you — no codes to type.","es":"Únete al canal y el bot desbloquea la app — sin códigos.","fr":"Rejoignez le canal et le bot déverrouille l'app — sans code."],
+        "gateOr": ["it":"Non usi Telegram? Seguimi qui e continua:","en":"No Telegram? Follow me here and continue:","es":"¿Sin Telegram? Sígueme aquí y continúa:","fr":"Pas de Telegram ? Suivez-moi ici et continuez :"],
+        "gateHonor": ["it":"Ho seguito, continua","en":"I followed, continue","es":"Ya te sigo, continuar","fr":"Je vous suis, continuer"],
         "resetDefaults": ["it":"Ripristina predefiniti","en":"Reset defaults","es":"Restaurar valores","fr":"Réinitialiser"],
         // stampanti
         "sPrinters": ["it":"Potenza, usura oraria e costo di avvio entrano nel costo reale.","en":"Wattage, hourly wear and startup cost feed the real cost.","es":"Potencia, desgaste y arranque entran en el coste real.","fr":"Puissance, usure et démarrage alimentent le coût réel."],
@@ -196,15 +200,21 @@ final class AppModel: ObservableObject {
     // tag affiliato BLOCCATO al valore incorporato: non modificabile dall'utente (app dell'autore)
     func amazonURL(_ query: String) -> String { Store.amazonSearch(query, tag: Store.defaultAmazonTag) }
 
-    // Sblocco tramite codice social
+    // Sblocco: verifica Telegram (token firmato via deep-link) oppure "onore" per IG/MakerWorld
     @Published var unlocked: Bool = UserDefaults.standard.bool(forKey: "app_unlocked")
-    @discardableResult
-    func tryUnlock(_ code: String) -> Bool {
-        let ok = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == Author.unlockCode.uppercased()
-        if ok { unlocked = true; UserDefaults.standard.set(true, forKey: "app_unlocked") }
-        return ok
-    }
+    private func setUnlocked() { unlocked = true; UserDefaults.standard.set(true, forKey: "app_unlocked") }
+    func unlockHonor() { setUnlocked() }
     func openSocial(_ url: String) { if let u = URL(string: url) { NSWorkspace.shared.open(u) } }
+
+    /// gestisce il ritorno dal bot: printcost://unlock?t=<exp>.<hmac>
+    func handleURL(_ url: URL) {
+        guard url.scheme?.lowercased() == Author.urlScheme else { return }
+        let isUnlock = (url.host == "unlock") || url.path.contains("unlock")
+        guard isUnlock,
+              let t = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "t" })?.value,
+              Verify.validToken(t) else { return }
+        setUnlocked()
+    }
 
     func t(_ k: String) -> String { Loc.s[k]?[lang.rawValue] ?? Loc.s[k]?["en"] ?? k }
 

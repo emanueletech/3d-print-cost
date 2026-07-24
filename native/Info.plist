@@ -12,4 +12,11 @@
   <key>LSMinimumSystemVersion</key><string>26.0</string>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>it.emanuele.costostampa3d</string>
+      <key>CFBundleURLSchemes</key><array><string>printcost</string></array>
+    </dict>
+  </array>
 </dict></plist>

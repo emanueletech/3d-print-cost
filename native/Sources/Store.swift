@@ -1,4 +1,19 @@
 import Foundation
+import CryptoKit
+
+// MARK: - Verifica token di sblocco (HMAC condiviso col bot)
+enum Verify {
+    /// token = "<expiryUnix>.<hmacSHA256(secret, expiryUnix) in hex>" — valido se firma ok e non scaduto
+    static func validToken(_ token: String) -> Bool {
+        let parts = token.split(separator: ".", maxSplits: 1).map(String.init)
+        guard parts.count == 2, let exp = Double(parts[0]) else { return false }
+        if exp < Date().timeIntervalSince1970 { return false }
+        let key = SymmetricKey(data: Data(Author.unlockSecret.utf8))
+        let mac = HMAC<SHA256>.authenticationCode(for: Data(parts[0].utf8), using: key)
+        let hex = mac.map { String(format: "%02x", $0) }.joined()
+        return hex == parts[1].lowercased()
+    }
+}
 
 // MARK: - Valuta (i prezzi interni sono sempre in EUR; qui la conversione per la vista)
 
@@ -15,12 +30,20 @@ enum Currency: String, CaseIterable, Codable, Identifiable {
 // MARK: - Autore & social (crediti in-app)
 enum Author {
     static let name = "Emanuele"
-    // DA CONFERMARE: dedotti da email/GitHub, correggere se sbagliati
-    static let instagram = "https://instagram.com/skorpionipod"
+    static let instagram = "https://www.instagram.com/emanuele_tech"
     static let telegram = "https://t.me/emanueletech"
-    static let makerworld = "https://makerworld.com/en/@emanueletech"
-    /// codice di sblocco pubblicato sui profili social (cambialo e ripubblicalo per ruotarlo)
-    static let unlockCode = "STAMPA3D"
+    static let makerworld = "https://makerworld.com/en/@Emanuele_tech"
+    static let youtube = "https://youtube.com/@emanuele_tech"
+    static let tiktok = "https://www.tiktok.com/@emanuele_tech"
+    static let linktree = "https://linktr.ee/emanuele_tech"
+    /// deep-link al bot che verifica l'iscrizione al canale e rimanda lo sblocco
+    static let telegramBot = "https://t.me/emanueletech_bot?start=unlock"
+    /// segreto condiviso col bot per firmare il token di sblocco (cambialo e allinea il bot)
+    static let unlockSecret = "cambia-questo-segreto-lungo-e-casuale"
+    /// consente lo sblocco "onore" per chi segue su IG/MakerWorld (non verificabile).
+    /// Metti false per accettare SOLO la verifica Telegram.
+    static let allowHonorUnlock = true
+    static let urlScheme = "printcost"
 }
 
 /// stato di formattazione valuta corrente (aggiornato dal modello, letto da eur())
