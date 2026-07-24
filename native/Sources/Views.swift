@@ -156,21 +156,27 @@ struct GlassCard<Content: View>: View {
 }
 
 struct StatCard: View {
+    @EnvironmentObject var m: AppModel
     let icon: String; let tint: Color; let k: String; let v: String; var d: String = ""
+    var goto: AppModel.Section? = nil
     var body: some View {
-        GlassCard {
+        let card = GlassCard {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Image(systemName: icon).font(.system(size: 13, weight: .semibold)).foregroundStyle(tint)
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(tint.opacity(0.16)))
                     Spacer()
+                    if goto != nil { Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary) }
                 }
                 Text(k.uppercased()).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.secondary).tracking(0.8)
                 Text(v).font(.system(size: 28, weight: .bold, design: .rounded))
                 if !d.isEmpty { Text(d).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(tint) }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
+        if let g = goto {
+            Button { m.section = g } label: { card }.buttonStyle(.plain).pointerStyle(.link)
+        } else { card }
     }
 }
 
@@ -188,37 +194,48 @@ struct OverviewView: View {
             LazyVGrid(columns: cols, spacing: 13) {
                 StatCard(icon: "clock.fill", tint: .blue, k: m.t("kTime"),
                     v: m.loaded.isEmpty ? "—" : "\(Int(m.totalSeconds/3600)) h",
-                    d: m.loaded.isEmpty ? "" : "≈ \(Int(ceil(m.totalSeconds/86400))) \(m.t("days"))")
+                    d: m.loaded.isEmpty ? "" : "≈ \(Int(ceil(m.totalSeconds/86400))) \(m.t("days"))",
+                    goto: m.loaded.isEmpty ? nil : .plates)
                 StatCard(icon: "cube.fill", tint: .purple, k: m.t("kMat"),
                     v: m.loaded.isEmpty ? "—" : String(format:"%.1f kg", m.totalGrams/1000),
-                    d: m.colorRows.isEmpty ? "" : "\(m.colorRows.count) \(m.t("colors"))")
+                    d: m.colorRows.isEmpty ? "" : "\(m.colorRows.count) \(m.t("colors"))",
+                    goto: m.loaded.isEmpty ? nil : .colors)
                 StatCard(icon: "eurosign.circle.fill", tint: .green, k: m.t("matReal"),
-                    v: m.loaded.isEmpty ? "—" : eur(m.cost.material), d: m.loaded.isEmpty ? "" : m.t("matUsed"))
+                    v: m.loaded.isEmpty ? "—" : eur(m.cost.material), d: m.loaded.isEmpty ? "" : m.t("matUsed"),
+                    goto: m.loaded.isEmpty ? nil : .materials)
                 StatCard(icon: "cylinder.fill", tint: .teal, k: m.t("kSpools"),
-                    v: m.loaded.isEmpty ? "—" : "\(m.totalSpools)", d: m.loaded.isEmpty ? "" : "\(eur(m.filamentCost)) · \(m.t("ifBuy"))")
+                    v: m.loaded.isEmpty ? "—" : "\(m.totalSpools)", d: m.loaded.isEmpty ? "" : "\(eur(m.filamentCost)) · \(m.t("ifBuy"))",
+                    goto: m.loaded.isEmpty ? nil : .colors)
                 StatCard(icon: "bolt.fill", tint: .orange, k: m.t("kEnergy"),
-                    v: m.loaded.isEmpty ? "—" : eur(m.energyCost), d: m.loaded.isEmpty ? "" : String(format:"%.1f kWh", m.kWh))
+                    v: m.loaded.isEmpty ? "—" : eur(m.energyCost), d: m.loaded.isEmpty ? "" : String(format:"%.1f kWh", m.kWh),
+                    goto: m.loaded.isEmpty ? nil : .setup)
                 StatCard(icon: "square.grid.3x3.fill", tint: .pink, k: m.t("kPlates"),
-                    v: m.loaded.isEmpty ? "—" : "\(m.totalPlates)", d: "")
+                    v: m.loaded.isEmpty ? "—" : "\(m.totalPlates)", d: m.loaded.isEmpty ? "" : m.t("nFiles"),
+                    goto: m.loaded.isEmpty ? nil : .files)
             }
 
             if !m.loaded.isEmpty {
                 HStack(alignment: .top, spacing: 13) {
-                    GlassCard {
-                        VStack(alignment: .leading) {
-                            Label(m.t("kByColor"), systemImage: "chart.pie.fill").font(.system(size:11,weight:.semibold)).foregroundStyle(.secondary)
-                            DonutView(rows: m.colorRows, total: m.totalGrams).frame(height: 180)
+                    Button { m.section = .colors } label: {
+                        GlassCard {
+                            VStack(alignment: .leading) {
+                                Label(m.t("kByColor"), systemImage: "chart.pie.fill").font(.system(size:11,weight:.semibold)).foregroundStyle(.secondary)
+                                DonutView(rows: m.colorRows, total: m.totalGrams).frame(height: 180)
+                            }
                         }
-                    }
-                    GlassCard {
-                        VStack(alignment: .leading) {
-                            Label(m.t("kHours"), systemImage: "chart.bar.fill").font(.system(size:11,weight:.semibold)).foregroundStyle(.secondary)
-                            SparkView(files: m.loaded).frame(height: 160)
+                    }.buttonStyle(.plain).pointerStyle(.link)
+                    Button { m.section = .files } label: {
+                        GlassCard {
+                            VStack(alignment: .leading) {
+                                Label(m.t("kHours"), systemImage: "chart.bar.fill").font(.system(size:11,weight:.semibold)).foregroundStyle(.secondary)
+                                SparkView(files: m.loaded).frame(height: 160)
+                            }
                         }
-                    }
+                    }.buttonStyle(.plain).pointerStyle(.link)
                 }.padding(.top, 13)
 
-                RealCostCard().padding(.top, 13)
+                Button { m.section = .setup } label: { RealCostCard() }.buttonStyle(.plain).pointerStyle(.link)
+                    .padding(.top, 13)
             }
         }
     }
