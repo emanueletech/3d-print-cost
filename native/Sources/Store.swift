@@ -71,6 +71,7 @@ struct StoreData: Codable {
     var kwh: Double
     var currency: String?     // opzionali per retrocompatibilità con vecchi store.json
     var eurRate: Double?
+    var amazonTag: String?    // tag affiliato Amazon.it dell'utente
 }
 
 enum Store {
@@ -91,7 +92,20 @@ enum Store {
             s.printers = s.printers.filter { !generic.contains($0.name) } + s.printers.filter { generic.contains($0.name) }
             return s
         }
-        return StoreData(materials: defaultMaterials(), printers: defaultPrinters(), failurePct: 7, kwh: 0.209, currency: "eur", eurRate: 1.0)
+        return StoreData(materials: defaultMaterials(), printers: defaultPrinters(), failurePct: 7, kwh: 0.209, currency: "eur", eurRate: 1.0, amazonTag: defaultAmazonTag)
+    }
+
+    /// tag affiliato di default (incorporato): resta anche condividendo l'app, finché non viene cambiato
+    static let defaultAmazonTag = "emanueleesp-21"
+
+    /// costruisce un link di ricerca affiliato su amazon.it (tag opzionale)
+    static func amazonSearch(_ query: String, tag: String) -> String {
+        var c = URLComponents(string: "https://www.amazon.it/s")!
+        c.queryItems = [URLQueryItem(name: "k", value: query)]
+        if !tag.trimmingCharacters(in: .whitespaces).isEmpty {
+            c.queryItems!.append(URLQueryItem(name: "tag", value: tag.trimmingCharacters(in: .whitespaces)))
+        }
+        return c.url?.absoluteString ?? "https://www.amazon.it"
     }
 
     static func save(_ s: StoreData) {

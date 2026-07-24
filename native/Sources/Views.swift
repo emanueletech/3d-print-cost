@@ -591,6 +591,14 @@ struct SetupView: View {
                             }
                         }
                         Text(m.t("currencyNote")).font(.system(size: 11)).foregroundStyle(.secondary)
+                        Divider().padding(.vertical, 2)
+                        Field(m.t("fAmazon")) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "cart").foregroundStyle(.orange).font(.system(size: 12))
+                                TextField("iltuonome-21", text: $m.amazonTag).textFieldStyle(.roundedBorder).frame(width: 180)
+                            }
+                        }
+                        Text(m.t("amazonHint")).font(.system(size: 11)).foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
                 VStack(spacing: 14) {
@@ -646,9 +654,9 @@ struct MaterialsView: View {
                 Button { m.materials = Store.defaultMaterials() } label: { Label(m.t("resetDefaults"), systemImage: "arrow.counterclockwise") }.buttonStyle(.bordered).controlSize(.small)
                 Spacer()
                 Menu {
-                    Button("Bambu Lab") { openURL("https://eu.store.bambulab.com/collections/pla") }
-                    Button("eSun") { openURL("https://www.esun3d.com/pla-pro-product/") }
-                    Button("Amazon") { openURL("https://www.amazon.it/s?k=filamento+pla+1kg") }
+                    Button("Bambu Lab Store") { openURL("https://eu.store.bambulab.com/collections/pla") }
+                    Button("eSun · Amazon") { openURL(m.amazonURL("eSun PLA PETG filamento 1kg")) }
+                    Button("Amazon · filamenti") { openURL(m.amazonURL("filamento stampa 3d 1kg")) }
                 } label: { Label(m.t("checkOffers"), systemImage: "tag") }
                     .menuStyle(.borderedButton).controlSize(.small).fixedSize()
             }
@@ -681,6 +689,8 @@ struct MaterialsView: View {
                             }.frame(width: 84, alignment: .trailing)
                             TextField("", value: $mat.densityGcm3, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 86)
                             TextField("", value: Binding(get: { mat.stockKg ?? 0 }, set: { mat.stockKg = $0 }), format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 58)
+                            Button { openURL(m.amazonURL("\(mat.type) \(mat.name) filamento 1kg")) } label: { Image(systemName: "cart") }
+                                .buttonStyle(.plain).foregroundStyle(.orange).frame(width: 24).help(m.t("amazonSearch"))
                             Button { m.materials.removeAll { $0.id == mat.id } } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).frame(width: 26)
                         }.font(.system(size: 13)).padding(.horizontal, 10).padding(.vertical, 6).overlay(Rectangle().fill(.white.opacity(0.06)).frame(height: 1), alignment: .top)
                     }
