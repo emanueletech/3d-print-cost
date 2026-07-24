@@ -8,10 +8,10 @@ import simd
 enum Lang: String, CaseIterable, Identifiable {
     case it, en, es, fr
     var id: String { rawValue }
-    var flag: String { ["it":"🇮🇹","en":"🇬🇧","es":"🇪🇸","fr":"🇫🇷"][rawValue]! }
+    var flag: String { ["it":"🇮🇹","en":"🇺🇸","es":"🇪🇸","fr":"🇫🇷"][rawValue]! }
     var label: String { ["it":"Italiano","en":"English","es":"Español","fr":"Français"][rawValue]! }
-    /// valuta di default per la lingua (IT/ES/FR = €, EN 🇬🇧 = £)
-    var defaultCurrency: Currency { self == .en ? .gbp : .eur }
+    /// valuta di default per la lingua (IT/ES/FR = €, EN 🇺🇸 = $)
+    var defaultCurrency: Currency { self == .en ? .usd : .eur }
 }
 
 enum Loc {
