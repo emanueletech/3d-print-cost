@@ -10,6 +10,8 @@ enum Lang: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var flag: String { ["it":"🇮🇹","en":"🇬🇧","es":"🇪🇸","fr":"🇫🇷"][rawValue]! }
     var label: String { ["it":"Italiano","en":"English","es":"Español","fr":"Français"][rawValue]! }
+    /// valuta di default per la lingua (IT/ES/FR = €, EN 🇬🇧 = £)
+    var defaultCurrency: Currency { self == .en ? .gbp : .eur }
 }
 
 enum Loc {
@@ -112,6 +114,7 @@ enum Loc {
         "mDensity": ["it":"Densità g/cm³","en":"Density g/cm³","es":"Densidad g/cm³","fr":"Densité g/cm³"],
         "mStock": ["it":"Scorta kg","en":"Stock kg","es":"Stock kg","fr":"Stock kg"],
         "addMaterial": ["it":"Aggiungi materiale","en":"Add material","es":"Añadir material","fr":"Ajouter matériau"],
+        "blankMaterial": ["it":"Vuoto (personalizzato)","en":"Blank (custom)","es":"Vacío (personalizado)","fr":"Vide (personnalisé)"],
         "resetDefaults": ["it":"Ripristina predefiniti","en":"Reset defaults","es":"Restaurar valores","fr":"Réinitialiser"],
         // stampanti
         "sPrinters": ["it":"Potenza, usura oraria e costo di avvio entrano nel costo reale.","en":"Wattage, hourly wear and startup cost feed the real cost.","es":"Potencia, desgaste y arranque entran en el coste real.","fr":"Puissance, usure et démarrage alimentent le coût réel."],
@@ -143,6 +146,10 @@ enum Loc {
         "grpSettings": ["it":"Impostazioni","en":"Settings","es":"Ajustes","fr":"Réglages"],
         "plateHint": ["it":"Tocca un piatto per includerlo o escluderlo dal calcolo.","en":"Tap a plate to include or exclude it from the totals.","es":"Toca una placa para incluirla o excluirla.","fr":"Touchez un plateau pour l'inclure ou l'exclure."],
         "platesOn": ["it":"su","en":"of","es":"de","fr":"sur"],
+        // valuta
+        "fCurrency": ["it":"Valuta","en":"Currency","es":"Moneda","fr":"Devise"],
+        "fRate": ["it":"Tasso da EUR (1 € = …)","en":"Rate from EUR (1 € = …)","es":"Cambio desde EUR (1 € = …)","fr":"Taux depuis EUR (1 € = …)"],
+        "currencyNote": ["it":"I prezzi sono in euro; qui converto per la vista. Si allinea alla lingua, ma tasso e valuta sono modificabili.","en":"Prices are in euro; converted here for display. Follows the language, but rate and currency are editable.","es":"Los precios están en euros; se convierten aquí. Sigue el idioma, pero es editable.","fr":"Les prix sont en euros; convertis ici. Suit la langue, mais modifiable."],
     ]
 }
 
@@ -160,7 +167,14 @@ final class AppModel: ObservableObject {
         if let s = UserDefaults.standard.string(forKey: "lang"), let l = Lang(rawValue: s) { return l }
         let sys = Locale.current.language.languageCode?.identifier ?? "it"
         return Lang(rawValue: sys) ?? .it
-    }() { didSet { UserDefaults.standard.set(lang.rawValue, forKey: "lang") } }
+    }() { didSet {
+        UserDefaults.standard.set(lang.rawValue, forKey: "lang")
+        // cambiando lingua, allinea la valuta (e il tasso di default)
+        currency = lang.defaultCurrency; eurRate = currency.defaultRate
+    } }
+
+    @Published var currency: Currency = .eur { didSet { Money.currency = currency; persist() } }
+    @Published var eurRate: Double = 1.0 { didSet { Money.rate = eurRate; persist() } }
 
     func t(_ k: String) -> String { Loc.s[k]?[lang.rawValue] ?? Loc.s[k]?["en"] ?? k }
 
@@ -180,14 +194,17 @@ final class AppModel: ObservableObject {
     init() {
         let s = Store.load()
         materials = s.materials; printersDB = s.printers; failurePct = s.failurePct; kwh = s.kwh
+        currency = Currency(rawValue: s.currency ?? "eur") ?? .eur
+        eurRate = s.eurRate ?? currency.defaultRate
+        Money.currency = currency; Money.rate = eurRate
         selPrinterID = s.printers.first?.id
         if let p = s.printers.first { watts = p.watts }
     }
-    private var loadedOnce = false
     func persist() {
         // evita salvataggi durante l'init
         guard !materials.isEmpty || !printersDB.isEmpty else { return }
-        Store.save(StoreData(materials: materials, printers: printersDB, failurePct: failurePct, kwh: kwh))
+        Store.save(StoreData(materials: materials, printers: printersDB, failurePct: failurePct, kwh: kwh,
+                             currency: currency.rawValue, eurRate: eurRate))
     }
     var selectedPrinter: PrinterProfile? { printersDB.first { $0.id == selPrinterID } ?? printersDB.first }
 
@@ -398,10 +415,8 @@ func hms(_ s: Double) -> String {
     let h = Int(s) / 3600, m = Int((s.truncatingRemainder(dividingBy: 3600)) / 60 + 0.5)
     return h > 0 ? "\(h)h \(String(format: "%02d", m))m" : "\(m)m"
 }
-func eur(_ v: Double) -> String {
-    let f = NumberFormatter(); f.numberStyle = .currency; f.currencyCode = "EUR"; f.locale = Locale(identifier: "it_IT")
-    return f.string(from: NSNumber(value: v)) ?? "€\(v)"
-}
+/// formatta un valore in EUR nella valuta attualmente selezionata (con conversione)
+func eur(_ v: Double) -> String { Money.fmt(v) }
 extension Color {
     init(hex: String) {
         var s = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))

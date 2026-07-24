@@ -576,6 +576,21 @@ struct SetupView: View {
                             HStack { Slider(value: $m.failurePct, in: 0...30, step: 1); Text("\(Int(m.failurePct)) %").frame(width: 44) }
                         }
                         Text(m.t("failureNote")).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                        Divider().padding(.vertical, 2)
+                        HStack(spacing: 12) {
+                            Field(m.t("fCurrency")) {
+                                Picker("", selection: $m.currency) {
+                                    ForEach(Currency.allCases) { c in Text("\(c.symbol) \(c.code)").tag(c) }
+                                }.labelsHidden().frame(width: 120)
+                            }
+                            Field(m.t("fRate")) {
+                                HStack(spacing: 6) {
+                                    TextField("", value: $m.eurRate, format: .number).textFieldStyle(.roundedBorder).frame(width: 90)
+                                    Text(m.currency.symbol).foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        Text(m.t("currencyNote")).font(.system(size: 11)).foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
                 VStack(spacing: 14) {
@@ -612,9 +627,22 @@ struct MaterialsView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(m.t("sMaterials")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
             HStack {
-                Button { m.materials.insert(Material(name: "Nuovo", type: "PLA Basic", colorHex: "#8E9089", costPerKg: 22.99, densityGcm3: 1.24), at: 0) } label: {
-                    Label(m.t("addMaterial"), systemImage: "plus")
-                }.buttonStyle(.borderedProminent).controlSize(.small)
+                Menu {
+                    Button(m.t("blankMaterial")) { m.materials.insert(Material(name: "Nuovo", type: "PLA Basic", colorHex: "#8E9089", costPerKg: 22.99, densityGcm3: 1.24), at: 0) }
+                    Divider()
+                    ForEach(Store.presetBrandOrder, id: \.self) { brand in
+                        Menu(brand) {
+                            ForEach(Store.presetTypes(brand), id: \.self) { type in
+                                Menu(type) {
+                                    ForEach(Store.presetItems(brand, type)) { p in
+                                        Button("\(p.colorName)  ·  \(String(format: "%.2f", p.costPerKg)) €/kg") { m.materials.insert(p.make(), at: 0) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } label: { Label(m.t("addMaterial"), systemImage: "plus") }
+                    .menuStyle(.borderedButton).controlSize(.small).fixedSize()
                 Button { m.materials = Store.defaultMaterials() } label: { Label(m.t("resetDefaults"), systemImage: "arrow.counterclockwise") }.buttonStyle(.bordered).controlSize(.small)
                 Spacer()
             }
