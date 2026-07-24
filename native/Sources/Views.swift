@@ -79,16 +79,31 @@ struct Sidebar: View {
             // gruppo Impostazioni (separato, stile iOS)
             navGroup(m.t("grpSettings"), [.materials, .printers, .setup])
             Spacer()
-            HStack(spacing: 8) {
-                Image(systemName: "bolt.fill").font(.system(size: 11)).foregroundStyle(.yellow)
-                Text("Bambu Lab H2C · \(Int(m.watts)) W · \(m.kwh, specifier: "%.3f") €/kWh")
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            // crediti autore + social
+            VStack(alignment: .leading, spacing: 7) {
+                Text(m.t("followFree")).font(.system(size: 10.5)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Text("\(m.t("madeBy")) \(Author.name)").font(.system(size: 10.5, weight: .semibold))
+                    Spacer()
+                    socialBtn("camera.fill", Author.instagram, "Instagram")
+                    socialBtn("paperplane.fill", Author.telegram, "Telegram")
+                    socialBtn("cube.fill", Author.makerworld, "MakerWorld")
+                }
             }
+            .padding(10).background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.06)))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.white.opacity(0.08)))
         }
         .padding(.top, 44).padding(.horizontal, 12).padding(.bottom, 14)
         .frame(width: 224)
         .background(.ultraThinMaterial)
         .overlay(Rectangle().fill(.white.opacity(0.08)).frame(width: 1), alignment: .trailing)
+    }
+
+    @ViewBuilder func socialBtn(_ icon: String, _ url: String, _ help: String) -> some View {
+        Button { if let u = URL(string: url) { NSWorkspace.shared.open(u) } } label: {
+            Image(systemName: icon).font(.system(size: 12)).frame(width: 24, height: 24)
+                .background(Circle().fill(.white.opacity(0.1)))
+        }.buttonStyle(.plain).foregroundStyle(.secondary).help(help)
     }
 
     @ViewBuilder func navGroup(_ title: String, _ items: [AppModel.Section]) -> some View {
@@ -591,14 +606,6 @@ struct SetupView: View {
                             }
                         }
                         Text(m.t("currencyNote")).font(.system(size: 11)).foregroundStyle(.secondary)
-                        Divider().padding(.vertical, 2)
-                        Field(m.t("fAmazon")) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "cart").foregroundStyle(.orange).font(.system(size: 12))
-                                TextField("iltuonome-21", text: $m.amazonTag).textFieldStyle(.roundedBorder).frame(width: 180)
-                            }
-                        }
-                        Text(m.t("amazonHint")).font(.system(size: 11)).foregroundStyle(.secondary)
                     }.frame(maxWidth: .infinity, alignment: .leading)
                 }
                 VStack(spacing: 14) {
@@ -697,6 +704,10 @@ struct MaterialsView: View {
                 }
             }
             Text(m.t("offersNote")).font(.system(size: 11)).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Image(systemName: "info.circle").font(.system(size: 10)).foregroundStyle(.tertiary)
+                Text(m.t("affiliate")).font(.system(size: 10.5)).foregroundStyle(.tertiary)
+            }
         }
     }
     func openURL(_ s: String) { if let u = URL(string: s) { NSWorkspace.shared.open(u) } }

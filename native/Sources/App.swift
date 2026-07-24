@@ -122,6 +122,9 @@ enum Loc {
         "fAmazon": ["it":"Tag affiliato Amazon.it","en":"Amazon.it affiliate tag","es":"Tag afiliado Amazon.it","fr":"Tag affilié Amazon.it"],
         "amazonHint": ["it":"Il tuo tag Associates (es. iltuonome-21). Viene agganciato ai link Amazon dei filamenti.","en":"Your Associates tag (e.g. yourname-21). Added to the filament Amazon links.","es":"Tu tag Associates (p.ej. tunombre-21). Se añade a los enlaces de Amazon.","fr":"Votre tag Associates (ex. votrenom-21). Ajouté aux liens Amazon."],
         "amazonSearch": ["it":"Cerca su Amazon","en":"Search on Amazon","es":"Buscar en Amazon","fr":"Chercher sur Amazon"],
+        "madeBy": ["it":"Creata da","en":"Made by","es":"Creada por","fr":"Créée par"],
+        "followFree": ["it":"App gratuita — se ti è utile, seguimi 🙌","en":"Free app — if it helps, follow me 🙌","es":"App gratis — si te sirve, sígueme 🙌","fr":"App gratuite — si utile, suivez-moi 🙌"],
+        "affiliate": ["it":"In qualità di Affiliato Amazon, ricevo un guadagno dagli acquisti idonei.","en":"As an Amazon Associate I earn from qualifying purchases.","es":"Como Afiliado de Amazon, gano con las compras que cumplen los requisitos.","fr":"En tant que Partenaire Amazon, je réalise un bénéfice sur les achats remplissant les conditions requises."],
         "resetDefaults": ["it":"Ripristina predefiniti","en":"Reset defaults","es":"Restaurar valores","fr":"Réinitialiser"],
         // stampanti
         "sPrinters": ["it":"Potenza, usura oraria e costo di avvio entrano nel costo reale.","en":"Wattage, hourly wear and startup cost feed the real cost.","es":"Potencia, desgaste y arranque entran en el coste real.","fr":"Puissance, usure et démarrage alimentent le coût réel."],
@@ -182,10 +185,8 @@ final class AppModel: ObservableObject {
 
     @Published var currency: Currency = .eur { didSet { Money.currency = currency; persist() } }
     @Published var eurRate: Double = 1.0 { didSet { Money.rate = eurRate; persist() } }
-    @Published var amazonTag: String = Store.defaultAmazonTag { didSet { persist() } }
-    // se l'utente svuota il campo, si torna al tag incorporato (resta anche condividendo l'app)
-    var effectiveAmazonTag: String { amazonTag.trimmingCharacters(in: .whitespaces).isEmpty ? Store.defaultAmazonTag : amazonTag }
-    func amazonURL(_ query: String) -> String { Store.amazonSearch(query, tag: effectiveAmazonTag) }
+    // tag affiliato BLOCCATO al valore incorporato: non modificabile dall'utente (app dell'autore)
+    func amazonURL(_ query: String) -> String { Store.amazonSearch(query, tag: Store.defaultAmazonTag) }
 
     func t(_ k: String) -> String { Loc.s[k]?[lang.rawValue] ?? Loc.s[k]?["en"] ?? k }
 
@@ -207,7 +208,6 @@ final class AppModel: ObservableObject {
         materials = s.materials; printersDB = s.printers; failurePct = s.failurePct; kwh = s.kwh
         currency = Currency(rawValue: s.currency ?? "eur") ?? .eur
         eurRate = s.eurRate ?? currency.defaultRate
-        amazonTag = s.amazonTag ?? Store.defaultAmazonTag
         Money.currency = currency; Money.rate = eurRate
         selPrinterID = s.printers.first?.id
         if let p = s.printers.first { watts = p.watts }
@@ -216,7 +216,7 @@ final class AppModel: ObservableObject {
         // evita salvataggi durante l'init
         guard !materials.isEmpty || !printersDB.isEmpty else { return }
         Store.save(StoreData(materials: materials, printers: printersDB, failurePct: failurePct, kwh: kwh,
-                             currency: currency.rawValue, eurRate: eurRate, amazonTag: amazonTag))
+                             currency: currency.rawValue, eurRate: eurRate, amazonTag: nil))
     }
     var selectedPrinter: PrinterProfile? { printersDB.first { $0.id == selPrinterID } ?? printersDB.first }
 

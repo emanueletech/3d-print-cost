@@ -12,6 +12,15 @@ enum Currency: String, CaseIterable, Codable, Identifiable {
     var defaultRate: Double { ["eur":1.0,"gbp":0.8532,"usd":1.1392,"chf":0.9295][rawValue]! }
 }
 
+// MARK: - Autore & social (crediti in-app)
+enum Author {
+    static let name = "Emanuele"
+    // DA CONFERMARE: dedotti da email/GitHub, correggere se sbagliati
+    static let instagram = "https://instagram.com/skorpionipod"
+    static let telegram = "https://t.me/emanueletech"
+    static let makerworld = "https://makerworld.com/en/@emanueletech"
+}
+
 /// stato di formattazione valuta corrente (aggiornato dal modello, letto da eur())
 enum Money {
     static var currency: Currency = .eur
@@ -95,7 +104,7 @@ enum Store {
         return StoreData(materials: defaultMaterials(), printers: defaultPrinters(), failurePct: 7, kwh: 0.209, currency: "eur", eurRate: 1.0, amazonTag: defaultAmazonTag)
     }
 
-    /// tag affiliato di default (incorporato): resta anche condividendo l'app, finché non viene cambiato
+    /// tag affiliato incorporato e bloccato (app dell'autore)
     static let defaultAmazonTag = "emanueleesp-21"
 
     /// costruisce un link di ricerca affiliato su amazon.it (tag opzionale)
