@@ -19,6 +19,8 @@ enum Author {
     static let instagram = "https://instagram.com/skorpionipod"
     static let telegram = "https://t.me/emanueletech"
     static let makerworld = "https://makerworld.com/en/@emanueletech"
+    /// codice di sblocco pubblicato sui profili social (cambialo e ripubblicalo per ruotarlo)
+    static let unlockCode = "STAMPA3D"
 }
 
 /// stato di formattazione valuta corrente (aggiornato dal modello, letto da eur())

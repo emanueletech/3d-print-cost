@@ -38,6 +38,7 @@ struct RootView: View {
                 Detail().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             if let b = m.busy { BusyBar(text: b) }
+            if !m.unlocked { GateView() }        // schermata di sblocco all'avvio
         }
         .preferredColorScheme(.dark)
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
@@ -48,6 +49,69 @@ struct RootView: View {
             }
             return true
         }
+    }
+}
+
+// MARK: - Schermata di sblocco (follow-gate)
+
+struct GateView: View {
+    @EnvironmentObject var m: AppModel
+    @State private var code = ""
+    @State private var wrong = false
+    var body: some View {
+        ZStack {
+            AuroraBackground()
+            Rectangle().fill(.black.opacity(0.35)).ignoresSafeArea()
+            VStack(spacing: 18) {
+                Image(systemName: "lock.open.fill").font(.system(size: 30)).foregroundStyle(.white)
+                    .frame(width: 66, height: 66).background(Circle().fill(Color.accentColor.opacity(0.9)))
+                    .shadow(color: .accentColor.opacity(0.5), radius: 16)
+                Text(m.t("gateTitle")).font(.system(size: 30, weight: .bold, design: .serif))
+                Text(m.t("gateBody")).font(.system(size: 14)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).frame(maxWidth: 420).fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 12) {
+                    follow("camera.fill", "Instagram", .pink, Author.instagram)
+                    follow("paperplane.fill", "Telegram", .blue, Author.telegram)
+                    follow("cube.fill", "MakerWorld", .orange, Author.makerworld)
+                }
+
+                Text(m.t("gateStep")).font(.system(size: 12.5)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center).frame(maxWidth: 420)
+
+                HStack(spacing: 10) {
+                    TextField(m.t("gateCode"), text: $code)
+                        .textFieldStyle(.plain).font(.system(size: 16, weight: .semibold, design: .monospaced))
+                        .multilineTextAlignment(.center).frame(width: 190)
+                        .padding(.vertical, 10).background(RoundedRectangle(cornerRadius: 11).fill(.white.opacity(0.12)))
+                        .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(wrong ? Color.red : .white.opacity(0.2)))
+                        .onSubmit(unlock)
+                    Button(m.t("gateUnlock")) { unlock() }.buttonStyle(.borderedProminent).controlSize(.large)
+                }
+                if wrong { Text(m.t("gateWrong")).font(.system(size: 12)).foregroundStyle(.red) }
+
+                HStack(spacing: 7) {
+                    Image(systemName: "info.circle").font(.system(size: 10)).foregroundStyle(.tertiary)
+                    Text(m.t("affiliate")).font(.system(size: 10.5)).foregroundStyle(.tertiary)
+                }.padding(.top, 6)
+            }
+            .padding(40)
+            .background(RoundedRectangle(cornerRadius: 24).fill(.regularMaterial))
+            .overlay(RoundedRectangle(cornerRadius: 24).strokeBorder(.white.opacity(0.15)))
+            .shadow(color: .black.opacity(0.4), radius: 30, y: 16)
+            .frame(maxWidth: 520)
+        }
+        .preferredColorScheme(.dark)
+    }
+    func unlock() { withAnimation { wrong = !m.tryUnlock(code) } }
+    @ViewBuilder func follow(_ icon: String, _ name: String, _ tint: Color, _ url: String) -> some View {
+        Button { m.openSocial(url) } label: {
+            VStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 18)).foregroundStyle(.white)
+                    .frame(width: 46, height: 46).background(Circle().fill(tint))
+                Text(name).font(.system(size: 11, weight: .medium))
+            }
+        }.buttonStyle(.plain)
     }
 }
 

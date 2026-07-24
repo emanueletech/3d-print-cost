@@ -125,6 +125,14 @@ enum Loc {
         "madeBy": ["it":"Creata da","en":"Made by","es":"Creada por","fr":"Créée par"],
         "followFree": ["it":"App gratuita — se ti è utile, seguimi 🙌","en":"Free app — if it helps, follow me 🙌","es":"App gratis — si te sirve, sígueme 🙌","fr":"App gratuite — si utile, suivez-moi 🙌"],
         "affiliate": ["it":"In qualità di Affiliato Amazon, ricevo un guadagno dagli acquisti idonei.","en":"As an Amazon Associate I earn from qualifying purchases.","es":"Como Afiliado de Amazon, gano con las compras que cumplen los requisitos.","fr":"En tant que Partenaire Amazon, je réalise un bénéfice sur les achats remplissant les conditions requises."],
+        // schermata di sblocco
+        "gateTitle": ["it":"App gratuita","en":"Free app","es":"App gratis","fr":"App gratuite"],
+        "gateBody": ["it":"Questa app è gratis. In cambio, ti chiedo solo un follow: seguimi su Instagram, oppure — se non ce l'hai — sul canale Telegram o su MakerWorld.","en":"This app is free. In return, I just ask for a follow: on Instagram, or — if you don't have it — my Telegram channel or MakerWorld.","es":"Esta app es gratis. A cambio, solo te pido un follow: en Instagram, o — si no lo tienes — en Telegram o MakerWorld.","fr":"Cette app est gratuite. En échange, juste un suivi : sur Instagram, ou — sinon — Telegram ou MakerWorld."],
+        "gateStep": ["it":"Poi inserisci il codice di sblocco che trovi sul mio profilo/canale.","en":"Then enter the unlock code you'll find on my profile/channel.","es":"Luego introduce el código de desbloqueo de mi perfil/canal.","fr":"Puis entrez le code de déblocage sur mon profil/canal."],
+        "gateCode": ["it":"Codice di sblocco","en":"Unlock code","es":"Código de desbloqueo","fr":"Code de déblocage"],
+        "gateUnlock": ["it":"Sblocca l'app","en":"Unlock the app","es":"Desbloquear","fr":"Déverrouiller"],
+        "gateWrong": ["it":"Codice non valido. Controlla sul profilo/canale che segui.","en":"Invalid code. Check on the profile/channel you follow.","es":"Código no válido. Míralo en el perfil/canal.","fr":"Code invalide. Vérifiez sur le profil/canal."],
+        "gateThanks": ["it":"Grazie per il supporto! 🙌","en":"Thanks for the support! 🙌","es":"¡Gracias por el apoyo! 🙌","fr":"Merci pour le soutien ! 🙌"],
         "resetDefaults": ["it":"Ripristina predefiniti","en":"Reset defaults","es":"Restaurar valores","fr":"Réinitialiser"],
         // stampanti
         "sPrinters": ["it":"Potenza, usura oraria e costo di avvio entrano nel costo reale.","en":"Wattage, hourly wear and startup cost feed the real cost.","es":"Potencia, desgaste y arranque entran en el coste real.","fr":"Puissance, usure et démarrage alimentent le coût réel."],
@@ -187,6 +195,16 @@ final class AppModel: ObservableObject {
     @Published var eurRate: Double = 1.0 { didSet { Money.rate = eurRate; persist() } }
     // tag affiliato BLOCCATO al valore incorporato: non modificabile dall'utente (app dell'autore)
     func amazonURL(_ query: String) -> String { Store.amazonSearch(query, tag: Store.defaultAmazonTag) }
+
+    // Sblocco tramite codice social
+    @Published var unlocked: Bool = UserDefaults.standard.bool(forKey: "app_unlocked")
+    @discardableResult
+    func tryUnlock(_ code: String) -> Bool {
+        let ok = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased() == Author.unlockCode.uppercased()
+        if ok { unlocked = true; UserDefaults.standard.set(true, forKey: "app_unlocked") }
+        return ok
+    }
+    func openSocial(_ url: String) { if let u = URL(string: url) { NSWorkspace.shared.open(u) } }
 
     func t(_ k: String) -> String { Loc.s[k]?[lang.rawValue] ?? Loc.s[k]?["en"] ?? k }
 
