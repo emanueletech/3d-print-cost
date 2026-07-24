@@ -38,8 +38,8 @@ enum Author {
     static let linktree = "https://linktr.ee/emanuele_tech"
     /// deep-link al bot che verifica l'iscrizione al canale e rimanda lo sblocco
     static let telegramBot = "https://t.me/emanueletech_bot?start=unlock"
-    /// segreto condiviso col bot per firmare il token di sblocco (cambialo e allinea il bot)
-    static let unlockSecret = "cambia-questo-segreto-lungo-e-casuale"
+    /// segreto condiviso col bot per firmare il token di sblocco (== UNLOCK_SECRET nel bot)
+    static let unlockSecret = "73c0919734d2184c2f8d09006baf5fec200dfab357fc1d2bc443c23f49b3e28c"
     /// consente lo sblocco "onore" per chi segue su IG/MakerWorld (non verificabile).
     /// Metti false per accettare SOLO la verifica Telegram.
     static let allowHonorUnlock = true
