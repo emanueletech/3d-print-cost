@@ -54,6 +54,9 @@ enum Store {
             // migrazione non distruttiva: aggiunge stampanti predefinite nuove mancanti (per nome)
             let have = Set(s.printers.map { $0.name })
             for p in defaultPrinters() where !have.contains(p.name) { s.printers.append(p) }
+            // tiene la voce generica ("Altra") sempre in fondo
+            let generic: Set<String> = ["Altra", "Other", "Otra", "Autre", "—"]
+            s.printers = s.printers.filter { !generic.contains($0.name) } + s.printers.filter { generic.contains($0.name) }
             return s
         }
         return StoreData(materials: defaultMaterials(), printers: defaultPrinters(), failurePct: 7, kwh: 0.209)
