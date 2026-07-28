@@ -1,0 +1,241 @@
+/* Testi dell'interfaccia — stesse chiavi dell'app macOS (Loc.s), più le voci Windows. */
+'use strict';
+
+// tutto racchiuso: nel renderer gli script condividono lo scope globale
+(() => {
+
+  const LANGS = [
+    { id: 'it', flag: '🇮🇹', label: 'Italiano', currency: 'eur' },
+    { id: 'en', flag: '🇺🇸', label: 'English', currency: 'usd' },
+    { id: 'es', flag: '🇪🇸', label: 'Español', currency: 'eur' },
+    { id: 'fr', flag: '🇫🇷', label: 'Français', currency: 'eur' },
+  ];
+
+  const LOC = {
+    brand: { it: 'Costo Stampa 3D', en: '3D Print Cost', es: 'Coste Impresión 3D', fr: 'Coût Impression 3D' },
+    nOverview: { it: 'Panoramica', en: 'Overview', es: 'Resumen', fr: 'Aperçu' },
+    nFiles: { it: 'File & Slicing', en: 'Files & Slicing', es: 'Archivos', fr: 'Fichiers' },
+    nColors: { it: 'Colori & Bobine', en: 'Colors & Spools', es: 'Colores y Bobinas', fr: 'Couleurs & Bobines' },
+    nPlates: { it: 'Ottimizza piatti', en: 'Optimize plates', es: 'Optimizar placas', fr: 'Optimiser plateaux' },
+    nSetup: { it: 'Costi & Setup', en: 'Costs & Setup', es: 'Costes y Ajustes', fr: 'Coûts & Réglages' },
+    kTime: { it: 'Tempo di stampa', en: 'Print time', es: 'Tiempo de impresión', fr: "Temps d'impression" },
+    kMat: { it: 'Materiale', en: 'Material', es: 'Material', fr: 'Matériau' },
+    kSpools: { it: 'Bobine da comprare', en: 'Spools to buy', es: 'Bobinas a comprar', fr: 'Bobines à acheter' },
+    kFil: { it: 'Filamento', en: 'Filament', es: 'Filamento', fr: 'Filament' },
+    kEnergy: { it: 'Corrente', en: 'Electricity', es: 'Electricidad', fr: 'Électricité' },
+    kPlates: { it: 'Piatti', en: 'Plates', es: 'Placas', fr: 'Plateaux' },
+    kByColor: { it: 'Materiale per colore', en: 'Material by color', es: 'Material por color', fr: 'Matériau par couleur' },
+    kHours: { it: 'Ore per file', en: 'Hours per file', es: 'Horas por archivo', fr: 'Heures par fichier' },
+    dropStart: { it: 'Trascina i tuoi file .3mf per iniziare', en: 'Drop your .3mf files to get started', es: 'Arrastra tus archivos .3mf para empezar', fr: 'Déposez vos fichiers .3mf pour commencer' },
+    days: { it: 'giorni di stampa', en: 'days of printing', es: 'días de impresión', fr: 'jours d’impression' },
+    colors: { it: 'colori', en: 'colors', es: 'colores', fr: 'couleurs' },
+    refills: { it: 'refill 1 kg', en: '1 kg refills', es: 'recargas 1 kg', fr: 'recharges 1 kg' },
+    files: { it: 'file', en: 'files', es: 'archivos', fr: 'fichiers' },
+    sFiles: {
+      it: 'I 3mf già slicati vengono letti al volo; quelli non slicati li slico con Bambu Studio (profilo H2C).',
+      en: 'Already-sliced 3mf are read instantly; unsliced ones are sliced with Bambu Studio (H2C profile).',
+      es: 'Los 3mf ya laminados se leen al instante; los no laminados se laminan con Bambu Studio (perfil H2C).',
+      fr: 'Les 3mf déjà découpés sont lus instantanément; les autres sont découpés avec Bambu Studio (profil H2C).',
+    },
+    dropHere: { it: 'Trascina qui i .3mf  ·  oppure clicca per sceglierli', en: 'Drop .3mf here  ·  or click to choose', es: 'Arrastra .3mf aquí  ·  o haz clic para elegir', fr: 'Déposez les .3mf ici  ·  ou cliquez pour choisir' },
+    noFiles: { it: 'Nessun file caricato.', en: 'No files loaded.', es: 'Ningún archivo cargado.', fr: 'Aucun fichier chargé.' },
+    thFile: { it: 'File', en: 'File', es: 'Archivo', fr: 'Fichier' },
+    thPlates: { it: 'Piatti', en: 'Plates', es: 'Placas', fr: 'Plateaux' },
+    thTime: { it: 'Tempo', en: 'Time', es: 'Tiempo', fr: 'Temps' },
+    thGrams: { it: 'Grammi', en: 'Grams', es: 'Gramos', fr: 'Grammes' },
+    thEnergy: { it: 'Corrente', en: 'Energy', es: 'Energía', fr: 'Énergie' },
+    thSpool: { it: 'Bobina', en: 'Spool', es: 'Bobina', fr: 'Bobine' },
+    thQty: { it: 'Bobine', en: 'Spools', es: 'Bobinas', fr: 'Bobines' },
+    thUnit: { it: '€/bobina', en: '€/spool', es: '€/bobina', fr: '€/bobine' },
+    thTot: { it: 'Totale', en: 'Total', es: 'Total', fr: 'Total' },
+    total: { it: 'Totale', en: 'Total', es: 'Total', fr: 'Total' },
+    sColors: {
+      it: 'Prezzo per bobina in base alla scelta filamento; sconti quantità Bambu applicati in automatico.',
+      en: 'Per-spool price based on the filament choice; Bambu volume discounts applied automatically.',
+      es: 'Precio por bobina según la elección de filamento; descuentos por volumen de Bambu automáticos.',
+      fr: 'Prix par bobine selon le choix de filament; remises quantité Bambu automatiques.',
+    },
+    noColors: { it: 'Carica dei file per vedere i colori.', en: 'Load files to see colors.', es: 'Carga archivos para ver colores.', fr: 'Chargez des fichiers pour voir les couleurs.' },
+    slice: { it: 'Slica', en: 'Slice', es: 'Laminar', fr: 'Découper' },
+    sPlates: {
+      it: 'Piatti leggeri dello stesso colore accorpabili su un piatto H2C: meno riscaldamenti e cambi manuali.',
+      en: 'Light same-color plates you can merge on one H2C bed: fewer heat-ups and manual swaps.',
+      es: 'Placas ligeras del mismo color combinables en una H2C: menos calentamientos y cambios manuales.',
+      fr: 'Plateaux légers de même couleur à fusionner sur un lit H2C: moins de chauffes et de changements.',
+    },
+    noPlates: { it: 'Carica dei file per i consigli.', en: 'Load files for advice.', es: 'Carga archivos para consejos.', fr: 'Chargez des fichiers pour les conseils.' },
+    rule: {
+      it: "Regola d'oro: accorpa solo pezzi dello stesso colore. Risparmio stimato:",
+      en: 'Golden rule: merge only same-color parts. Estimated saving:',
+      es: 'Regla de oro: combina solo piezas del mismo color. Ahorro estimado:',
+      fr: "Règle d'or: fusionnez seulement les pièces de même couleur. Économie estimée:",
+    },
+    hours: { it: 'ore', en: 'hours', es: 'horas', fr: 'heures' },
+    sSetup: { it: 'I valori si applicano subito a tutti i calcoli.', en: 'Values apply instantly to every calculation.', es: 'Los valores se aplican al instante.', fr: "Les valeurs s'appliquent instantanément." },
+    fPrinter: { it: 'Stampante (precompila i watt)', en: 'Printer (pre-fills wattage)', es: 'Impresora (rellena vatios)', fr: 'Imprimante (pré-remplit les watts)' },
+    fWatts: { it: 'Potenza media in stampa (W)', en: 'Average printing power (W)', es: 'Potencia media (W)', fr: 'Puissance moyenne (W)' },
+    fKwh: { it: 'Energia — costo marginale (€/kWh)', en: 'Energy — marginal cost (€/kWh)', es: 'Energía — coste marginal (€/kWh)', fr: 'Énergie — coût marginal (€/kWh)' },
+    fSource: { it: 'Filamento', en: 'Filament', es: 'Filamento', fr: 'Filament' },
+    srcRefill: { it: 'Bambu refill', en: 'Bambu refill', es: 'Bambu recarga', fr: 'Bambu recharge' },
+    srcSpool: { it: 'Bambu con bobina', en: 'Bambu with spool', es: 'Bambu con bobina', fr: 'Bambu avec bobine' },
+    srcOther: { it: 'Altra marca', en: 'Other brand', es: 'Otra marca', fr: 'Autre marque' },
+    fMsrp: { it: 'Listino refill 1 kg (€)', en: 'Refill MSRP 1 kg (€)', es: 'PVP recarga 1 kg (€)', fr: 'Prix recharge 1 kg (€)' },
+    fSpoolPrice: { it: 'Prezzo con bobina 1 kg (€)', en: 'With-spool price 1 kg (€)', es: 'Precio con bobina 1 kg (€)', fr: 'Prix avec bobine 1 kg (€)' },
+    fOtherBrand: { it: 'Nome marca', en: 'Brand name', es: 'Nombre marca', fr: 'Nom marque' },
+    fOtherPrice: { it: 'Prezzo bobina 1 kg (€)', en: 'Spool price 1 kg (€)', es: 'Precio bobina 1 kg (€)', fr: 'Prix bobine 1 kg (€)' },
+    tierNote: {
+      it: 'Sconti Bambu: −35% da 4 · −45% da 6 · −50% da 10 (auto sul totale bobine)',
+      en: 'Bambu discounts: −35% at 4 · −45% at 6 · −50% at 10 (auto on total spools)',
+      es: 'Descuentos Bambu: −35% desde 4 · −45% desde 6 · −50% desde 10 (auto)',
+      fr: 'Remises Bambu: −35% dès 4 · −45% dès 6 · −50% dès 10 (auto)',
+    },
+    otherNote: { it: 'Prezzo fisso per bobina, senza sconti quantità.', en: 'Flat per-spool price, no volume discount.', es: 'Precio fijo por bobina, sin descuentos.', fr: 'Prix fixe par bobine, sans remise.' },
+    full: { it: 'listino pieno', en: 'full price', es: 'precio lleno', fr: 'plein tarif' },
+    t4: { it: '−35% (4+)', en: '−35% (4+)', es: '−35% (4+)', fr: '−35% (4+)' },
+    t6: { it: '−45% (6+)', en: '−45% (6+)', es: '−45% (6+)', fr: '−45% (6+)' },
+    t10: { it: '−50% (10+)', en: '−50% (10+)', es: '−50% (10+)', fr: '−50% (10+)' },
+    other: { it: 'Altra', en: 'Other', es: 'Otra', fr: 'Autre' },
+    busy: { it: 'Slicing di %@ con Bambu Studio…', en: 'Slicing %@ with Bambu Studio…', es: 'Laminando %@ con Bambu Studio…', fr: 'Découpage de %@ avec Bambu Studio…' },
+
+    nMaterials: { it: 'Materiali', en: 'Materials', es: 'Materiales', fr: 'Matériaux' },
+    nPrinters: { it: 'Stampanti', en: 'Printers', es: 'Impresoras', fr: 'Imprimantes' },
+
+    realCost: { it: 'Costo reale della stampa', en: 'Real print cost', es: 'Coste real de impresión', fr: "Coût réel d'impression" },
+    cMaterial: { it: 'Materiale consumato', en: 'Material used', es: 'Material usado', fr: 'Matériau utilisé' },
+    cEnergy: { it: 'Energia', en: 'Energy', es: 'Energía', fr: 'Énergie' },
+    cWear: { it: 'Usura macchina', en: 'Machine wear', es: 'Desgaste máquina', fr: 'Usure machine' },
+    cSetup: { it: 'Avvii / setup', en: 'Setup / starts', es: 'Arranques', fr: 'Démarrages' },
+    cFailure: { it: 'Fallimenti', en: 'Failures', es: 'Fallos', fr: 'Échecs' },
+    cTotal: { it: 'Costo reale totale', en: 'Total real cost', es: 'Coste real total', fr: 'Coût réel total' },
+    cUpfront: { it: 'Bobine da comprare (spesa iniziale)', en: 'Spools to buy (upfront)', es: 'Bobinas a comprar (inicial)', fr: 'Bobines à acheter (initial)' },
+    matReal: { it: 'Materiale (reale)', en: 'Material (real)', es: 'Material (real)', fr: 'Matériau (réel)' },
+    matUsed: { it: 'consumato in stampa', en: 'used in this print', es: 'usado en impresión', fr: "utilisé à l'impression" },
+    ifBuy: { it: 'se le compri', en: 'if you buy them', es: 'si las compras', fr: 'si vous les achetez' },
+
+    sMaterials: { it: 'Il costo reale usa il €/kg e la densità del materiale abbinato a ogni colore.', en: "Real cost uses each color's material €/kg and density.", es: 'El coste real usa €/kg y densidad de cada material.', fr: 'Le coût réel utilise le €/kg et la densité de chaque matériau.' },
+    mName: { it: 'Nome', en: 'Name', es: 'Nombre', fr: 'Nom' },
+    mType: { it: 'Tipo', en: 'Type', es: 'Tipo', fr: 'Type' },
+    mColor: { it: 'Colore', en: 'Color', es: 'Color', fr: 'Couleur' },
+    mCost: { it: '€/kg', en: '€/kg', es: '€/kg', fr: '€/kg' },
+    mDensity: { it: 'Densità g/cm³', en: 'Density g/cm³', es: 'Densidad g/cm³', fr: 'Densité g/cm³' },
+    mStock: { it: 'Scorta kg', en: 'Stock kg', es: 'Stock kg', fr: 'Stock kg' },
+    addMaterial: { it: 'Aggiungi materiale', en: 'Add material', es: 'Añadir material', fr: 'Ajouter matériau' },
+    blankMaterial: { it: 'Vuoto (personalizzato)', en: 'Blank (custom)', es: 'Vacío (personalizado)', fr: 'Vide (personnalisé)' },
+    mSale: { it: 'Offerta €/kg', en: 'Sale €/kg', es: 'Oferta €/kg', fr: 'Promo €/kg' },
+    checkOffers: { it: 'Verifica offerte', en: 'Check offers', es: 'Ver ofertas', fr: 'Voir offres' },
+    onSaleBadge: { it: 'offerta', en: 'sale', es: 'oferta', fr: 'promo' },
+    offersNote: {
+      it: 'Imposta il prezzo in offerta che trovi: verrà usato al posto del listino nel costo reale. I link aprono gli store per controllare le promo.',
+      en: "Enter the sale price you find: it's used instead of list price in the real cost. Links open the stores to check promos.",
+      es: 'Introduce el precio de oferta: se usa en vez del de lista. Los enlaces abren las tiendas.',
+      fr: 'Saisissez le prix promo: utilisé au lieu du tarif. Les liens ouvrent les boutiques.',
+    },
+    amazonSearch: { it: 'Cerca su Amazon', en: 'Search on Amazon', es: 'Buscar en Amazon', fr: 'Chercher sur Amazon' },
+    madeBy: { it: 'Creata da', en: 'Made by', es: 'Creada por', fr: 'Créée par' },
+    followFree: { it: 'App gratuita — se ti è utile, seguimi 🙌', en: 'Free app — if it helps, follow me 🙌', es: 'App gratis — si te sirve, sígueme 🙌', fr: 'App gratuite — si utile, suivez-moi 🙌' },
+    affiliate: {
+      it: 'In qualità di Affiliato Amazon, ricevo un guadagno dagli acquisti idonei.',
+      en: 'As an Amazon Associate I earn from qualifying purchases.',
+      es: 'Como Afiliado de Amazon, gano con las compras que cumplen los requisitos.',
+      fr: 'En tant que Partenaire Amazon, je réalise un bénéfice sur les achats remplissant les conditions requises.',
+    },
+
+    gateTitle: { it: 'App gratuita', en: 'Free app', es: 'App gratis', fr: 'App gratuite' },
+    gateBody: {
+      it: "Questa app è gratis. In cambio, ti chiedo solo un follow: seguimi su Instagram, oppure — se non ce l'hai — sul canale Telegram o su MakerWorld.",
+      en: "This app is free. In return, I just ask for a follow: on Instagram, or — if you don't have it — my Telegram channel or MakerWorld.",
+      es: 'Esta app es gratis. A cambio, solo te pido un follow: en Instagram, o — si no lo tienes — en Telegram o MakerWorld.',
+      fr: "Cette app est gratuite. En échange, juste un suivi : sur Instagram, ou — sinon — Telegram ou MakerWorld.",
+    },
+    gateUnlock: { it: "Sblocca l'app", en: 'Unlock the app', es: 'Desbloquear', fr: 'Déverrouiller' },
+    gateTelegram: { it: 'Sblocca con Telegram', en: 'Unlock with Telegram', es: 'Desbloquear con Telegram', fr: 'Déverrouiller avec Telegram' },
+    gateTgHint: {
+      it: "Iscriviti al canale e il bot sblocca l'app da solo — nessun codice da scrivere.",
+      en: 'Join the channel and the bot unlocks the app for you — no codes to type.',
+      es: 'Únete al canal y el bot desbloquea la app — sin códigos.',
+      fr: "Rejoignez le canal et le bot déverrouille l'app — sans code.",
+    },
+    gateOr: { it: 'Non usi Telegram? Seguimi qui e continua:', en: 'No Telegram? Follow me here and continue:', es: '¿Sin Telegram? Sígueme aquí y continúa:', fr: 'Pas de Telegram ? Suivez-moi ici et continuez :' },
+    gateHonor: { it: 'Ho seguito, continua', en: 'I followed, continue', es: 'Ya te sigo, continuar', fr: 'Je vous suis, continuer' },
+    gateCodeMobile: { it: 'Dal telefono? Inserisci il codice che ti manda il bot:', en: 'On your phone? Enter the code the bot sends you:', es: '¿Desde el móvil? Introduce el código del bot:', fr: 'Sur téléphone ? Entrez le code envoyé par le bot :' },
+    gateCodePlaceholder: { it: 'CODICE', en: 'CODE', es: 'CÓDIGO', fr: 'CODE' },
+    gateCodeWrong: { it: 'Codice non valido o scaduto.', en: 'Invalid or expired code.', es: 'Código no válido o caducado.', fr: 'Code invalide ou expiré.' },
+    resetDefaults: { it: 'Ripristina predefiniti', en: 'Reset defaults', es: 'Restaurar valores', fr: 'Réinitialiser' },
+
+    sPrinters: { it: 'Potenza, usura oraria e costo di avvio entrano nel costo reale.', en: 'Wattage, hourly wear and startup cost feed the real cost.', es: 'Potencia, desgaste y arranque entran en el coste real.', fr: 'Puissance, usure et démarrage alimentent le coût réel.' },
+    pName: { it: 'Stampante', en: 'Printer', es: 'Impresora', fr: 'Imprimante' },
+    pWatts: { it: 'Watt', en: 'Watts', es: 'Vatios', fr: 'Watts' },
+    pWear: { it: 'Usura €/h', en: 'Wear €/h', es: 'Desgaste €/h', fr: 'Usure €/h' },
+    pSetup: { it: 'Setup €', en: 'Setup €', es: 'Setup €', fr: 'Setup €' },
+    addPrinter: { it: 'Aggiungi stampante', en: 'Add printer', es: 'Añadir impresora', fr: 'Ajouter imprimante' },
+    selected: { it: 'In uso', en: 'In use', es: 'En uso', fr: 'En usage' },
+
+    fFailure: { it: 'Tasso di fallimento stampe (%)', en: 'Print failure rate (%)', es: 'Tasa de fallos (%)', fr: "Taux d'échec (%)" },
+    failureNote: { it: 'Quota aggiunta al costo per coprire le stampe fallite/riprovate.', en: 'Added to cost to cover failed/retried prints.', es: 'Añadido al coste para cubrir fallos.', fr: 'Ajouté au coût pour couvrir les échecs.' },
+    wearHint: { it: 'Usura = prezzo macchina ÷ ore di vita utile. Es. 1500€ / 12000h ≈ 0,12 €/h.', en: 'Wear = machine price ÷ useful-life hours. E.g. 1500€ / 12000h ≈ 0.12 €/h.', es: 'Desgaste = precio ÷ horas de vida. Ej. 1500€ / 12000h ≈ 0,12 €/h.', fr: 'Usure = prix ÷ heures de vie. Ex. 1500€ / 12000h ≈ 0,12 €/h.' },
+
+    nOrient: { it: 'Orienta 3D', en: '3D orient', es: 'Orientar 3D', fr: 'Orienter 3D' },
+    sOrient: {
+      it: 'Carica STL / STEP / OBJ: ti mostro come orientarlo per meno supporti, poi lo slico e lo aggiungo ai costi.',
+      en: 'Load STL / STEP / OBJ: see how to orient it for fewer supports, then slice it into the costs.',
+      es: 'Carga STL / STEP / OBJ: te muestro cómo orientarlo con menos soportes y lo laminó.',
+      fr: "Chargez STL / STEP / OBJ: voyez comment l'orienter avec moins de supports, puis découpe.",
+    },
+    loadModel: { it: 'Carica modello 3D', en: 'Load 3D model', es: 'Cargar modelo 3D', fr: 'Charger modèle 3D' },
+    noModel: { it: 'Nessun modello caricato.', en: 'No model loaded.', es: 'Ningún modelo cargado.', fr: 'Aucun modèle chargé.' },
+    poseName: { it: 'Posa', en: 'Pose', es: 'Pose', fr: 'Pose' },
+    poseHeight: { it: 'Altezza', en: 'Height', es: 'Altura', fr: 'Hauteur' },
+    poseSupport: { it: 'Supporti', en: 'Supports', es: 'Soportes', fr: 'Supports' },
+    poseBest: { it: 'Consigliata', en: 'Best', es: 'Mejor', fr: 'Meilleure' },
+    threshold: { it: 'Angolo sbalzo supporti (°)', en: 'Support overhang angle (°)', es: 'Ángulo voladizo (°)', fr: 'Angle de surplomb (°)' },
+    sliceOriented: { it: 'Slica questa posa e aggiungi ai costi', en: 'Slice this pose and add to costs', es: 'Laminar esta pose y añadir', fr: 'Découper cette pose et ajouter' },
+    orientHint: { it: 'Meno supporti = meno materiale sprecato e pulizia. Più bassa = più veloce e stabile.', en: 'Fewer supports = less wasted material and cleanup. Lower = faster and more stable.', es: 'Menos soportes = menos desperdicio. Más baja = más rápida.', fr: 'Moins de supports = moins de gaspillage. Plus basse = plus rapide.' },
+
+    grpProject: { it: 'Progetto', en: 'Project', es: 'Proyecto', fr: 'Projet' },
+    grpSettings: { it: 'Impostazioni', en: 'Settings', es: 'Ajustes', fr: 'Réglages' },
+    plateHint: { it: 'Tocca un piatto per includerlo o escluderlo dal calcolo.', en: 'Tap a plate to include or exclude it from the totals.', es: 'Toca una placa para incluirla o excluirla.', fr: "Touchez un plateau pour l'inclure ou l'exclure." },
+
+    fCurrency: { it: 'Valuta', en: 'Currency', es: 'Moneda', fr: 'Devise' },
+    fRate: { it: 'Tasso da EUR (1 € = …)', en: 'Rate from EUR (1 € = …)', es: 'Cambio desde EUR (1 € = …)', fr: 'Taux depuis EUR (1 € = …)' },
+    currencyNote: {
+      it: 'I prezzi sono in euro; qui converto per la vista. Si allinea alla lingua, ma tasso e valuta sono modificabili.',
+      en: 'Prices are in euro; converted here for display. Follows the language, but rate and currency are editable.',
+      es: 'Los precios están en euros; se convierten aquí. Sigue el idioma, pero es editable.',
+      fr: 'Les prix sont en euros; convertis ici. Suit la langue, mais modifiable.',
+    },
+
+    /* ---- voci aggiunte per la versione desktop Windows ---- */
+    slicer: { it: 'Slicer', en: 'Slicer', es: 'Slicer', fr: 'Slicer' },
+    bambuOk: { it: 'Bambu Studio trovato: lo slicing automatico è attivo.', en: 'Bambu Studio found: automatic slicing is available.', es: 'Bambu Studio encontrado: laminado automático activo.', fr: 'Bambu Studio trouvé : découpage automatique actif.' },
+    bambuMissing: {
+      it: 'Bambu Studio non trovato. I .3mf già slicati funzionano lo stesso; per slicare da qui installalo o indica dove si trova.',
+      en: "Bambu Studio not found. Already-sliced .3mf still work; to slice from here install it or point to where it is.",
+      es: 'Bambu Studio no encontrado. Los .3mf ya laminados funcionan igual; para laminar aquí instálalo o indica dónde está.',
+      fr: "Bambu Studio introuvable. Les .3mf déjà découpés fonctionnent; pour découper ici, installez-le ou indiquez son emplacement.",
+    },
+    locateBambu: { it: 'Indica dove si trova…', en: 'Locate it…', es: 'Localizarlo…', fr: 'Le localiser…' },
+    errNot3mf: { it: '%@: non è un progetto 3mf valido', en: '%@: not a valid 3mf project', es: '%@: no es un proyecto 3mf válido', fr: '%@ : projet 3mf non valide' },
+    errNotSliced: { it: '%@: non slicato — premi «Slica»', en: '%@: not sliced — press “Slice”', es: '%@: no laminado — pulsa «Laminar»', fr: '%@ : non découpé — appuyez sur « Découper »' },
+    errSliceFail: { it: '%@: slicing fallito — aprilo in Bambu Studio', en: '%@: slicing failed — open it in Bambu Studio', es: '%@: laminado fallido — ábrelo en Bambu Studio', fr: '%@ : découpage échoué — ouvrez-le dans Bambu Studio' },
+    errAlready: { it: '%@: già caricato', en: '%@: already loaded', es: '%@: ya cargado', fr: '%@ : déjà chargé' },
+    errStep: { it: 'Conversione STEP non riuscita: serve Bambu Studio.', en: 'STEP conversion failed: Bambu Studio is required.', es: 'Conversión STEP fallida: se necesita Bambu Studio.', fr: 'Conversion STEP échouée : Bambu Studio requis.' },
+    errMesh: { it: 'Modello 3D non leggibile.', en: 'Unreadable 3D model.', es: 'Modelo 3D ilegible.', fr: 'Modèle 3D illisible.' },
+    okSliced: { it: '%@: slicato ✓', en: '%@: sliced ✓', es: '%@: laminado ✓', fr: '%@ : découpé ✓' },
+    loadingMesh: { it: 'Carico %@…', en: 'Loading %@…', es: 'Cargando %@…', fr: 'Chargement de %@…' },
+    viewerHint: { it: 'Trascina per ruotare · rotella per zoom · in rosso le facce che richiedono supporti.', en: 'Drag to rotate · wheel to zoom · faces needing supports are red.', es: 'Arrastra para rotar · rueda para zoom · en rojo las caras con soportes.', fr: 'Glissez pour tourner · molette pour zoomer · en rouge les faces à supporter.' },
+  };
+
+  /** traduzione con fallback su inglese e poi sulla chiave stessa */
+  function tr(key, lang) {
+    const e = LOC[key];
+    if (!e) return key;
+    return e[lang] || e.en || key;
+  }
+
+  /** sostituisce il segnaposto %@ (stesso formato delle stringhe macOS) */
+  function fmt(template, value) {
+    return String(template).replace('%@', value);
+  }
+
+  window.I18N = { LANGS, LOC, tr, fmt };
+})();

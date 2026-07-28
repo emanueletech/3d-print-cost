@@ -1,150 +1,358 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const { execFile, execFileSync } = require('child_process');
-const path = require('path');
+'use strict';
+/*
+ * Processo principale — Windows / macOS / Linux.
+ * Tutto ciò che tocca il disco, i processi esterni o lo sblocco vive qui:
+ * il renderer parla solo tramite i canali IPC dichiarati in preload.js.
+ */
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, nativeTheme } = require('electron');
 const fs = require('fs');
 const os = require('os');
+const path = require('path');
 
-const BAMBU = '/Applications/BambuStudio.app/Contents/MacOS/BambuStudio';
-const RES = path.join(__dirname, 'resources');
-const PROF = path.join(RES, 'profiles');
+const store = require('./lib/store');
+const threemf = require('./lib/threemf');
+const slicer = require('./lib/slicer');
+const unlock = require('./lib/unlock');
+const { Author } = store;
 
-let win;
+const isMac = process.platform === 'darwin';
+const isWin = process.platform === 'win32';
+
+let win = null;
+let state = null;
+/** deep-link di sblocco arrivato prima che la finestra fosse pronta */
+let pendingUnlock = false;
+/** file .3mf da riga di comando / "Apri con" prima che il renderer fosse pronto */
+let pendingFiles = [];
+
+/* ---------- percorsi ---------- */
+
+function resourcesDir() {
+  return app.isPackaged ? path.join(process.resourcesPath, 'resources') : path.join(__dirname, 'resources');
+}
+function profilesDir() {
+  return path.join(resourcesDir(), 'profiles');
+}
+function slicerOpts() {
+  return { profilesDir: profilesDir(), bambuPath: state && state.bambuPath ? state.bambuPath : '' };
+}
+
+/* ---------- stato ---------- */
+
+function loadState() {
+  store.init(app.getPath('userData'));
+  state = store.load();
+  return state;
+}
+function patchState(patch) {
+  state = { ...state, ...patch };
+  store.save(state);
+  return state;
+}
+
+/* ---------- deep link + file da riga di comando ---------- */
+
+function collect3mf(argv) {
+  return argv.filter((a) => typeof a === 'string' && /\.3mf$/i.test(a) && fs.existsSync(a));
+}
+
+function handleUnlockURL(url) {
+  if (!unlock.tokenFromURL(url)) return false;
+  patchState({ unlocked: true });
+  if (win) win.webContents.send('unlocked');
+  else pendingUnlock = true;
+  return true;
+}
+
+function handleArgv(argv) {
+  for (const a of argv) {
+    if (typeof a === 'string' && a.toLowerCase().startsWith(`${Author.urlScheme}://`)) handleUnlockURL(a);
+  }
+  const files = collect3mf(argv);
+  if (!files.length) return;
+  if (win) win.webContents.send('open-files', files);
+  else pendingFiles.push(...files);
+}
+
+/* ---------- finestra ---------- */
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1280,
-    height: 840,
-    minWidth: 980,
-    minHeight: 640,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 18, y: 20 },
-    vibrancy: 'under-window',            // materiale Apple ufficiale (NSVisualEffectView)
-    visualEffectState: 'active',
-    backgroundColor: '#00000000',
-    transparent: true,
+    width: 1320,
+    height: 880,
+    minWidth: 1020,
+    minHeight: 680,
+    show: false,
+    backgroundColor: '#0f1420',
+    icon: isWin ? path.join(__dirname, 'build', 'icon.ico') : path.join(__dirname, 'build', 'icon.png'),
+    // su Windows la barra è nascosta ma i pulsanti restano nativi (overlay);
+    // su macOS resta lo stile "hiddenInset" con la vibrancy di sistema
+    titleBarStyle: isMac ? 'hiddenInset' : isWin ? 'hidden' : 'default',
+    ...(isWin ? { titleBarOverlay: { color: '#12182a', symbolColor: '#dfe6f5', height: 42 } } : {}),
+    ...(isMac
+      ? { trafficLightPosition: { x: 18, y: 20 }, vibrancy: 'under-window', visualEffectState: 'active' }
+      : {}),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      spellcheck: false,
     },
   });
+
+  win.once('ready-to-show', () => win.show());
+  win.on('closed', () => {
+    win = null;
+  });
+
+  // link esterni sempre nel browser di sistema, mai dentro una finestra Electron
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    openExternal(url);
+    return { action: 'deny' };
+  });
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('file://')) {
+      e.preventDefault();
+      openExternal(url);
+    }
+  });
+
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
 
-app.whenReady().then(createWindow);
-app.on('window-all-closed', () => app.quit());
-
-/* ---------- utilità zip: usa /usr/bin/unzip di macOS ---------- */
-function unzipEntry(file, entry) {
-  try {
-    return execFileSync('/usr/bin/unzip', ['-p', file, entry],
-      { maxBuffer: 64 * 1024 * 1024 }).toString('utf8');
-  } catch { return null; }
+function openExternal(url) {
+  if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
 }
 
-/* ---------- parsing 3mf ---------- */
-function parseSliceInfo(xml) {
-  const plates = [];
-  const re = /<plate>([\s\S]*?)<\/plate>/g;
-  let m;
-  while ((m = re.exec(xml))) {
-    const b = m[1];
-    const pred = /key="prediction" value="(\d+)"/.exec(b);
-    if (!pred) continue;
-    const objs = [...b.matchAll(/object identify_id="\d+" name="([^"]+)"/g)].map(x => x[1]);
-    const fils = [...b.matchAll(/filament id="(\d+)"[^/]*?color="([^"]+)"[^/]*?used_g="([^"]+)"/g)]
-      .map(x => ({ slot: +x[1], color: x[2].toUpperCase(), g: +x[3] }));
-    const sup = /support_used" value="true"/.test(b);
-    plates.push({ seconds: +pred[1], objects: objs, filaments: fils, support: sup });
-  }
-  return plates;
+/* ---------- menu ---------- */
+
+const MENU = {
+  it: { file: 'File', open: 'Apri .3mf…', model: 'Apri modello 3D…', quit: 'Esci', edit: 'Modifica', undo: 'Annulla', redo: 'Ripeti', cut: 'Taglia', copy: 'Copia', paste: 'Incolla', selectAll: 'Seleziona tutto', view: 'Vista', reload: 'Ricarica', zoomIn: 'Ingrandisci', zoomOut: 'Riduci', zoomReset: 'Zoom normale', fullscreen: 'Schermo intero', devtools: 'Strumenti di sviluppo', help: 'Aiuto', bambu: 'Indica dove è installato Bambu Studio…', folder: 'Apri la cartella dei dati' },
+  en: { file: 'File', open: 'Open .3mf…', model: 'Open 3D model…', quit: 'Quit', edit: 'Edit', undo: 'Undo', redo: 'Redo', cut: 'Cut', copy: 'Copy', paste: 'Paste', selectAll: 'Select all', view: 'View', reload: 'Reload', zoomIn: 'Zoom in', zoomOut: 'Zoom out', zoomReset: 'Actual size', fullscreen: 'Full screen', devtools: 'Developer tools', help: 'Help', bambu: 'Locate Bambu Studio…', folder: 'Open data folder' },
+  es: { file: 'Archivo', open: 'Abrir .3mf…', model: 'Abrir modelo 3D…', quit: 'Salir', edit: 'Editar', undo: 'Deshacer', redo: 'Rehacer', cut: 'Cortar', copy: 'Copiar', paste: 'Pegar', selectAll: 'Seleccionar todo', view: 'Ver', reload: 'Recargar', zoomIn: 'Acercar', zoomOut: 'Alejar', zoomReset: 'Tamaño real', fullscreen: 'Pantalla completa', devtools: 'Herramientas de desarrollo', help: 'Ayuda', bambu: 'Localizar Bambu Studio…', folder: 'Abrir carpeta de datos' },
+  fr: { file: 'Fichier', open: 'Ouvrir .3mf…', model: 'Ouvrir modèle 3D…', quit: 'Quitter', edit: 'Édition', undo: 'Annuler', redo: 'Rétablir', cut: 'Couper', copy: 'Copier', paste: 'Coller', selectAll: 'Tout sélectionner', view: 'Affichage', reload: 'Recharger', zoomIn: 'Zoom avant', zoomOut: 'Zoom arrière', zoomReset: 'Taille réelle', fullscreen: 'Plein écran', devtools: 'Outils de développement', help: 'Aide', bambu: 'Localiser Bambu Studio…', folder: 'Ouvrir le dossier de données' },
+};
+
+function buildMenu(lang) {
+  const t = MENU[lang] || MENU.it;
+  const send = (msg) => () => win && win.webContents.send('menu', msg);
+  const template = [
+    ...(isMac ? [{ role: 'appMenu' }] : []),
+    {
+      label: t.file,
+      submenu: [
+        { label: t.open, accelerator: 'CmdOrCtrl+O', click: send('open3mf') },
+        { label: t.model, accelerator: 'CmdOrCtrl+Shift+O', click: send('openModel') },
+        { type: 'separator' },
+        { label: t.bambu, click: send('locateBambu') },
+        { label: t.folder, click: () => shell.openPath(app.getPath('userData')) },
+        { type: 'separator' },
+        isMac ? { role: 'close' } : { label: t.quit, role: 'quit' },
+      ],
+    },
+    {
+      label: t.edit,
+      submenu: [
+        { label: t.undo, role: 'undo' }, { label: t.redo, role: 'redo' }, { type: 'separator' },
+        { label: t.cut, role: 'cut' }, { label: t.copy, role: 'copy' }, { label: t.paste, role: 'paste' },
+        { label: t.selectAll, role: 'selectAll' },
+      ],
+    },
+    {
+      label: t.view,
+      submenu: [
+        { label: t.reload, role: 'reload' }, { type: 'separator' },
+        { label: t.zoomReset, role: 'resetZoom' }, { label: t.zoomIn, role: 'zoomIn' }, { label: t.zoomOut, role: 'zoomOut' },
+        { type: 'separator' },
+        { label: t.fullscreen, role: 'togglefullscreen' },
+        { label: t.devtools, role: 'toggleDevTools' },
+      ],
+    },
+    {
+      label: t.help,
+      submenu: [
+        { label: 'Instagram', click: () => openExternal(Author.instagram) },
+        { label: 'Telegram', click: () => openExternal(Author.telegram) },
+        { label: 'MakerWorld', click: () => openExternal(Author.makerworld) },
+        { label: 'YouTube', click: () => openExternal(Author.youtube) },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-function parseProject(file) {
-  const psRaw = unzipEntry(file, 'Metadata/project_settings.config');
-  const msRaw = unzipEntry(file, 'Metadata/model_settings.config');
-  const cfg = psRaw ? JSON.parse(psRaw) : {};
-  const slotColors = (cfg.filament_colour || []).map(c => c.toUpperCase());
-  const slotTypes = (cfg.filament_settings_id || []).map(s => /matte/i.test(s) ? 'PLA Matte' : 'PLA Basic');
-  const objSlot = {};
-  if (msRaw) {
-    for (const om of msRaw.matchAll(/<object id="(\d+)">([\s\S]*?)<\/object>/g)) {
-      const name = /name" value="([^"]+)"/.exec(om[2]);
-      const ext = /extruder" value="(\d+)"/.exec(om[2]);
-      if (name) objSlot[name[1]] = ext ? +ext[1] : 1;
-    }
-  }
-  return { slotColors, slotTypes, objSlot, printer: cfg.printer_model || '' };
-}
+/* ---------- IPC ---------- */
 
-function analyze(file) {
-  const xml = unzipEntry(file, 'Metadata/slice_info.config');
-  if (xml === null) return { error: 'not3mf' };
-  const proj = parseProject(file);
-  const plates = parseSliceInfo(xml);
-  if (!plates.length) return { error: 'notSliced', printer: proj.printer };
+function registerIPC() {
+  ipcMain.handle('app:info', () => ({
+    platform: process.platform,
+    version: app.getVersion(),
+    locale: app.getLocale(),
+    bambu: slicer.findBambu(state.bambuPath) || '',
+    userData: app.getPath('userData'),
+  }));
 
-  // correzione colore per-oggetto: il filamento id=1 appartiene allo slot vero dell'oggetto
-  const perColor = {};
-  let seconds = 0, grams = 0;
-  const plateRows = [];
-  plates.forEach((p, i) => {
-    seconds += p.seconds;
-    const trueSlot = p.objects.length ? (proj.objSlot[p.objects[0]] ?? 1) : 1;
-    let pg = 0;
-    const colorSet = new Set();
-    for (const f of p.filaments) {
-      const slot = f.slot === 1 ? trueSlot : f.slot;
-      const color = proj.slotColors[slot - 1] || f.color;
-      const type = proj.slotTypes[slot - 1] || 'PLA Basic';
-      const key = color + '|' + type;
-      perColor[key] = (perColor[key] || 0) + f.g;
-      pg += f.g; grams += f.g;
-      colorSet.add(key);
-    }
-    plateRows.push({ n: i + 1, seconds: p.seconds, grams: pg,
-      objects: p.objects, colors: [...colorSet], support: p.support });
-  });
-  return { plates: plateRows, seconds, grams, perColor, printer: proj.printer };
-}
-
-ipcMain.handle('analyze', (_e, file) => analyze(file));
-
-/* ---------- slicing con Bambu Studio CLI ---------- */
-ipcMain.handle('slice', async (_e, file) => {
-  if (!fs.existsSync(BAMBU)) return { error: 'noBambu' };
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'slice-'));
-  const proj = parseProject(file);
-  const fil = (proj.slotTypes.length ? proj.slotTypes : ['PLA Basic'])
-    .map(t => path.join(PROF, t === 'PLA Matte' ? 'fil_PLA_Matte_H2C.json' : 'fil_PLA_Basic_H2C.json'))
-    .join(';');
-  const run = (src) => new Promise(res => {
-    execFile(BAMBU, [
-      '--load-settings', `${path.join(PROF, 'machine_H2C_04.json')};${path.join(PROF, 'process_020_H2C.json')}`,
-      '--load-filaments', fil,
-      '--slice', '0', '--debug', '1',
-      '--export-3mf', 'sliced.3mf', '--outputdir', tmp, src,
-    ], { timeout: 30 * 60 * 1000 }, (err) => res(!err && fs.existsSync(path.join(tmp, 'sliced.3mf'))));
+  // il renderer segnala di essere pronto: gli si passa quanto arrivato prima
+  ipcMain.handle('app:ready', () => {
+    const out = { unlocked: pendingUnlock, files: pendingFiles.slice() };
+    pendingUnlock = false;
+    pendingFiles = [];
+    return out;
   });
 
-  let ok = await run(file);
-  if (!ok) {
-    // riposiziona sulla griglia H2C (progetti nati per P1S/X1C) e riprova
-    const remapped = path.join(tmp, 'remapped.3mf');
+  ipcMain.handle('store:load', () => state);
+  ipcMain.handle('store:save', (_e, patch) => patchState(patch || {}));
+  // liste di fabbrica: servono ai pulsanti "ripristina predefiniti" e ai preset materiali
+  ipcMain.handle('store:defaults', () => ({
+    materials: store.defaultMaterials(),
+    printers: store.defaultPrinters(),
+    presets: store.presets(),
+  }));
+
+  ipcMain.handle('menu:lang', (_e, lang) => {
+    buildMenu(lang);
+    return true;
+  });
+
+  ipcMain.handle('files:pick3mf', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      filters: [{ name: '3MF', extensions: ['3mf'] }],
+      properties: ['openFile', 'multiSelections'],
+    });
+    return r.canceled ? [] : r.filePaths;
+  });
+
+  ipcMain.handle('files:pickModel', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      filters: [{ name: 'STL · OBJ · STEP', extensions: ['stl', 'obj', 'step', 'stp'] }],
+      properties: ['openFile'],
+    });
+    return r.canceled ? null : r.filePaths[0];
+  });
+
+  ipcMain.handle('files:locateBambu', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      title: 'Bambu Studio',
+      filters: isWin ? [{ name: 'Bambu Studio', extensions: ['exe'] }] : [],
+      properties: ['openFile'],
+    });
+    if (!r.canceled && r.filePaths[0]) patchState({ bambuPath: r.filePaths[0] });
+    return { bambu: slicer.findBambu(state.bambuPath) || '' };
+  });
+
+  ipcMain.handle('threemf:analyze', (_e, file) => threemf.analyze(file));
+  ipcMain.handle('threemf:thumbnails', (_e, file) => threemf.thumbnails(file));
+  ipcMain.handle('slicer:slice', (_e, file) => slicer.slice(file, slicerOpts()));
+  ipcMain.handle('slicer:status', () => ({ bambu: slicer.findBambu(state.bambuPath) || '' }));
+
+  /** mesh dal disco: lo STEP passa da Bambu Studio, STL/OBJ si leggono diretti */
+  ipcMain.handle('mesh:read', async (_e, file) => {
+    const ext = path.extname(file).toLowerCase();
+    let src = file;
+    let tmpDir = null;
+    if (ext === '.step' || ext === '.stp') {
+      const stl = await slicer.stepToSTL(file, slicerOpts());
+      if (!stl) return { error: slicer.findBambu(state.bambuPath) ? 'stepFail' : 'noBambu' };
+      src = stl;
+      tmpDir = path.dirname(stl);
+    }
     try {
-      execFileSync('/usr/bin/python3', [path.join(RES, 'remap.py'), file, remapped]);
-      ok = await run(remapped);
-    } catch { /* resta ko */ }
-  }
-  if (!ok) { fs.rmSync(tmp, { recursive: true, force: true }); return { error: 'sliceFail' }; }
-  const out = analyze(path.join(tmp, 'sliced.3mf'));
-  fs.rmSync(tmp, { recursive: true, force: true });
-  return out;
-});
-
-ipcMain.handle('pickFiles', async () => {
-  const r = await dialog.showOpenDialog(win, {
-    filters: [{ name: '3MF', extensions: ['3mf'] }], properties: ['openFile', 'multiSelections'],
+      const data = fs.readFileSync(src);
+      return {
+        name: path.basename(file),
+        ext: path.extname(src).toLowerCase().replace('.', ''),
+        buffer: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+      };
+    } catch {
+      return { error: 'readFail' };
+    } finally {
+      if (tmpDir) slicer.cleanup(tmpDir);
+    }
   });
-  return r.canceled ? [] : r.filePaths;
-});
+
+  /** slicing della posa scelta: la mesh orientata arriva già in STL binario */
+  ipcMain.handle('slicer:sliceSTL', async (_e, { name, buffer }) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'printcost-mesh-'));
+    const file = path.join(dir, `${String(name || 'model').replace(/[^\w.-]+/g, '_')}.stl`);
+    try {
+      fs.writeFileSync(file, Buffer.from(buffer));
+      return await slicer.sliceRaw(file, slicerOpts());
+    } catch {
+      return { error: 'sliceFail' };
+    } finally {
+      slicer.cleanup(dir);
+    }
+  });
+
+  ipcMain.handle('unlock:code', (_e, code) => {
+    const ok = unlock.validCode(code);
+    if (ok) patchState({ unlocked: true });
+    return ok;
+  });
+  ipcMain.handle('unlock:honor', () => {
+    if (!Author.allowHonorUnlock) return false;
+    patchState({ unlocked: true });
+    return true;
+  });
+  ipcMain.handle('unlock:openBot', () => {
+    openExternal(Author.telegramBot);
+    return true;
+  });
+
+  ipcMain.handle('shell:open', (_e, url) => {
+    openExternal(url);
+    return true;
+  });
+}
+
+/* ---------- avvio ---------- */
+
+// una sola istanza: serve al deep-link di sblocco e ai file aperti con l'app
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  app.on('second-instance', (_e, argv) => {
+    handleArgv(argv);
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+
+  // macOS consegna deep-link e file con eventi dedicati
+  app.on('open-url', (e, url) => {
+    e.preventDefault();
+    handleUnlockURL(url);
+    if (win) win.focus();
+  });
+  app.on('open-file', (e, file) => {
+    e.preventDefault();
+    if (win) win.webContents.send('open-files', [file]);
+    else pendingFiles.push(file);
+  });
+
+  app.whenReady().then(() => {
+    nativeTheme.themeSource = 'dark'; // l'interfaccia è disegnata solo in scuro
+    loadState();
+
+    // protocollo printcost:// (l'installer NSIS lo registra anche a livello di sistema)
+    if (!app.isDefaultProtocolClient(Author.urlScheme)) {
+      if (isWin && !app.isPackaged && process.argv[1]) {
+        app.setAsDefaultProtocolClient(Author.urlScheme, process.execPath, [path.resolve(process.argv[1])]);
+      } else {
+        app.setAsDefaultProtocolClient(Author.urlScheme);
+      }
+    }
+
+    registerIPC();
+    buildMenu(state.lang || (app.getLocale() || 'it').slice(0, 2));
+    createWindow();
+    handleArgv(process.argv.slice(1));
+
+    app.on('activate', () => {
+      if (!BrowserWindow.getAllWindows().length) createWindow();
+    });
+  });
+
+  app.on('window-all-closed', () => app.quit());
+}
