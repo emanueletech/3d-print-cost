@@ -168,34 +168,44 @@ check('il rimappato resta leggibile come 3mf', () => {
   assert.ok(zip.list(path.join(tmp, 'remapped.3mf')).length >= 6);
 });
 
-/* ---------- sblocco ---------- */
+/* ---------- sblocco (firma Ed25519: il bot firma, l'app verifica) ---------- */
 
 console.log('sblocco');
-check('accetta il codice della finestra corrente', () => {
-  const w = Math.floor(Date.now() / 1000 / unlock.WINDOW);
-  assert.ok(unlock.validCode(unlock.windowCode(w)));
-  assert.ok(unlock.validCode(unlock.windowCode(w - 2).toLowerCase()), 'finestre precedenti');
+const crypto = require('crypto');
+// coppia usa-e-getta: il test fa la parte del bot con la privata,
+// l'app verifica con la sola pubblica (iniettata al posto di quella vera)
+const botKeys = crypto.generateKeyPairSync('ed25519');
+const realPublicKey = store.Author.unlockPublicKey;
+store.Author.unlockPublicKey = botKeys.publicKey
+  .export({ format: 'der', type: 'spki' }).subarray(-32).toString('hex');
+const signToken = (exp) =>
+  `${exp}.${crypto.sign(null, Buffer.from(`printcost:unlock:${exp}`), botKeys.privateKey).toString('hex')}`;
+
+check('accetta un token firmato valido, anche incollato come codice', () => {
+  const t = signToken(Math.floor(Date.now() / 1000) + 600);
+  assert.ok(unlock.validToken(t));
+  assert.ok(unlock.validCode(`  ${t}  `), 'con spazi attorno (incollato)');
+  assert.ok(unlock.tokenFromURL(`printcost://unlock?t=${t}`));
+  assert.strictEqual(unlock.tokenFromURL(`https://esempio.it/unlock?t=${t}`), null, 'schema sbagliato');
 });
-check('rifiuta codici scaduti o inventati', () => {
-  assert.ok(!unlock.validCode(unlock.windowCode(Math.floor(Date.now() / 1000 / unlock.WINDOW) - 5)));
+check('rifiuta token scaduti o manomessi', () => {
+  assert.ok(!unlock.validToken(signToken(Math.floor(Date.now() / 1000) - 10)), 'scaduto');
+  const t = signToken(Math.floor(Date.now() / 1000) + 600);
+  const [exp, sig] = t.split('.');
+  assert.ok(!unlock.validToken(`${+exp + 1}.${sig}`), 'scadenza alterata');
+  assert.ok(!unlock.validToken(`${exp}.${sig.replace(/^../, sig[0] === 'a' ? 'bb' : 'aa')}`), 'firma alterata');
   assert.ok(!unlock.validCode('ABC123'));
   assert.ok(!unlock.validCode(''));
   assert.ok(!unlock.validCode(null));
 });
-check('valida il token firmato del deep-link', () => {
-  const crypto = require('crypto');
-  const exp = String(Math.floor(Date.now() / 1000) + 600);
-  const mac = crypto.createHmac('sha256', store.Author.unlockSecret).update(exp).digest('hex');
-  assert.ok(unlock.validToken(`${exp}.${mac}`));
-  assert.ok(unlock.tokenFromURL(`printcost://unlock?t=${exp}.${mac}`));
-  assert.strictEqual(unlock.tokenFromURL(`printcost://unlock?t=${exp}.deadbeef`), null);
-  assert.strictEqual(unlock.tokenFromURL(`https://esempio.it/unlock?t=${exp}.${mac}`), null);
+check('una chiave privata diversa non sblocca', () => {
+  const intruder = crypto.generateKeyPairSync('ed25519');
+  const exp = Math.floor(Date.now() / 1000) + 600;
+  const sig = crypto.sign(null, Buffer.from(`printcost:unlock:${exp}`), intruder.privateKey).toString('hex');
+  assert.ok(!unlock.validToken(`${exp}.${sig}`));
 });
-check('rifiuta un token già scaduto', () => {
-  const crypto = require('crypto');
-  const exp = String(Math.floor(Date.now() / 1000) - 10);
-  const mac = crypto.createHmac('sha256', store.Author.unlockSecret).update(exp).digest('hex');
-  assert.ok(!unlock.validToken(`${exp}.${mac}`));
+check('la chiave pubblica di produzione è un hex Ed25519 plausibile', () => {
+  assert.match(realPublicKey, /^[0-9a-f]{64}$/);
 });
 
 /* ---------- store ---------- */

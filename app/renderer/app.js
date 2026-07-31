@@ -703,7 +703,7 @@
       </div>
       <div class="note center">${esc(t('gateCodeMobile'))}</div>
       <div class="coderow">
-        <input id="unlockCode" maxlength="6" placeholder="${esc(t('gateCodePlaceholder'))}" autocomplete="off">
+        <input id="unlockCode" placeholder="${esc(t('gateCodePlaceholder'))}" autocomplete="off" spellcheck="false">
         <button class="btn primary" data-act="unlockCode">${esc(t('gateUnlock'))}</button>
       </div>
       <div class="err" id="codeErr" hidden>${esc(t('gateCodeWrong'))}</div>

@@ -1,51 +1,64 @@
 'use strict';
 /*
- * Verifica dello sblocco: stesso schema HMAC del bot Telegram e dell'app macOS,
- * così lo stesso codice/link funziona su tutti i dispositivi.
+ * Verifica dello sblocco con firma Ed25519.
  *
- *   token  = "<scadenzaUnix>.<hmacSHA256(segreto, scadenzaUnix) hex>"   (deep-link)
- *   codice = primi 6 hex di HMAC(segreto, finestra) in maiuscolo        (dal telefono)
+ * Il bot firma con la chiave PRIVATA, che vive solo sul suo server; l'app
+ * incorpora la sola chiave PUBBLICA. Nel sorgente e nei binari non c'è alcun
+ * segreto: il repository può essere pubblico senza regalare lo sblocco.
+ *
+ *   messaggio = "printcost:unlock:<scadenzaUnix>"
+ *   token     = "<scadenzaUnix>.<firma Ed25519 in hex (128 caratteri)>"
+ *
+ * Lo stesso token vale per il deep-link (printcost://unlock?t=…) e, incollato
+ * a mano, per il campo codice della schermata di sblocco.
  */
 const crypto = require('crypto');
 const { Author } = require('./store');
 
-const WINDOW = 300; // durata della finestra del codice, in secondi
+// intestazione DER (SPKI) per una chiave pubblica Ed25519 grezza da 32 byte
+const SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 
-function hmacHex(message) {
-  return crypto.createHmac('sha256', Buffer.from(Author.unlockSecret, 'utf8')).update(String(message), 'utf8').digest('hex');
+let cached = { hex: null, key: null };
+
+function publicKey() {
+  const hex = String(Author.unlockPublicKey || '').toLowerCase();
+  if (cached.hex === hex) return cached.key;
+  let key = null;
+  if (/^[0-9a-f]{64}$/.test(hex)) {
+    try {
+      key = crypto.createPublicKey({
+        key: Buffer.concat([SPKI_PREFIX, Buffer.from(hex, 'hex')]),
+        format: 'der',
+        type: 'spki',
+      });
+    } catch {
+      key = null;
+    }
+  }
+  cached = { hex, key };
+  return key;
 }
 
-function equalsConstantTime(a, b) {
-  const ba = Buffer.from(a, 'utf8');
-  const bb = Buffer.from(b, 'utf8');
-  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb);
-}
-
-/** Token firmato che arriva dal deep-link printcost://unlock?t=… */
+/** Token firmato "<exp>.<sig hex>": vero se la firma è valida e non è scaduto. */
 function validToken(token) {
-  if (typeof token !== 'string') return false;
+  const key = publicKey();
+  if (!key || typeof token !== 'string') return false;
   const dot = token.indexOf('.');
   if (dot <= 0) return false;
   const exp = token.slice(0, dot);
-  const mac = token.slice(dot + 1);
-  const expiry = Number(exp);
-  if (!Number.isFinite(expiry) || expiry < Date.now() / 1000) return false;
-  return equalsConstantTime(hmacHex(exp), mac.toLowerCase());
+  const sig = token.slice(dot + 1).toLowerCase();
+  if (!/^\d{1,12}$/.test(exp) || !/^[0-9a-f]{128}$/.test(sig)) return false;
+  if (Number(exp) < Date.now() / 1000) return false;
+  try {
+    return crypto.verify(null, Buffer.from(`printcost:unlock:${exp}`, 'utf8'), key, Buffer.from(sig, 'hex'));
+  } catch {
+    return false;
+  }
 }
 
-/** Codice della finestra temporale indicata (identico a quello generato dal bot). */
-function windowCode(w) {
-  return hmacHex(w).slice(0, 6).toUpperCase();
-}
-
-/** Codice corto valido per la finestra corrente e le due precedenti (~15 min). */
+/** Codice incollato a mano nella schermata di sblocco: è lo stesso token. */
 function validCode(input) {
-  if (typeof input !== 'string') return false;
-  const s = input.trim().toUpperCase();
-  if (s.length !== 6) return false;
-  const now = Math.floor(Date.now() / 1000 / WINDOW);
-  for (let d = 0; d <= 2; d++) if (equalsConstantTime(windowCode(now - d), s)) return true;
-  return false;
+  return typeof input === 'string' && validToken(input.trim());
 }
 
 /** Estrae e verifica il token da un URL printcost://unlock?t=… */
@@ -62,4 +75,4 @@ function tokenFromURL(raw) {
   }
 }
 
-module.exports = { validToken, validCode, windowCode, tokenFromURL, WINDOW };
+module.exports = { validToken, validCode, tokenFromURL };

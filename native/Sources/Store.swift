@@ -1,34 +1,43 @@
 import Foundation
 import CryptoKit
 
-// MARK: - Verifica token di sblocco (HMAC condiviso col bot)
+// MARK: - Verifica token di sblocco (firma Ed25519 del bot)
+// Il bot firma con la chiave PRIVATA, che vive solo sul suo server; l'app
+// incorpora la sola chiave PUBBLICA: nel sorgente e nel binario non c'è
+// alcun segreto, quindi il repository può essere pubblico.
 enum Verify {
-    static let window: Int64 = 300   // finestra codice (s)
-
-    /// token = "<expiryUnix>.<hmacSHA256(secret, expiryUnix) in hex>" — per il deep-link (Mac)
+    /// messaggio firmato = "printcost:unlock:<expiryUnix>"
+    /// token = "<expiryUnix>.<firma Ed25519 in hex (128 caratteri)>"
     static func validToken(_ token: String) -> Bool {
         let parts = token.split(separator: ".", maxSplits: 1).map(String.init)
-        guard parts.count == 2, let exp = Double(parts[0]) else { return false }
-        if exp < Date().timeIntervalSince1970 { return false }
-        let key = SymmetricKey(data: Data(Author.unlockSecret.utf8))
-        let mac = HMAC<SHA256>.authenticationCode(for: Data(parts[0].utf8), using: key)
-        let hex = mac.map { String(format: "%02x", $0) }.joined()
-        return hex == parts[1].lowercased()
+        guard parts.count == 2, let exp = Double(parts[0]), exp >= Date().timeIntervalSince1970,
+              let sig = Data(hexString: parts[1]), sig.count == 64,
+              let raw = Data(hexString: Author.unlockPublicKey),
+              let key = try? Curve25519.Signing.PublicKey(rawRepresentation: raw)
+        else { return false }
+        return key.isValidSignature(sig, for: Data("printcost:unlock:\(parts[0])".utf8))
     }
 
-    /// codice corto per finestra temporale (uguale nel bot): primi 6 hex dell'HMAC(secret, window)
-    static func windowCode(_ w: Int64) -> String {
-        let key = SymmetricKey(data: Data(Author.unlockSecret.utf8))
-        let mac = HMAC<SHA256>.authenticationCode(for: Data(String(w).utf8), using: key)
-        return String(mac.map { String(format: "%02x", $0) }.joined().prefix(6)).uppercased()
-    }
-    /// valido per la finestra corrente e le 2 precedenti (~15 min), verificato offline
+    /// codice incollato a mano nella schermata di sblocco: è lo stesso token
     static func validCode(_ input: String) -> Bool {
-        let s = input.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard s.count == 6 else { return false }
-        let now = Int64(Date().timeIntervalSince1970) / window
-        for d in Int64(0)...2 where s == windowCode(now - d) { return true }
-        return false
+        validToken(input.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+}
+
+extension Data {
+    /// da stringa esadecimale (lunghezza pari); nil se non valida
+    init?(hexString: String) {
+        let s = hexString.lowercased()
+        guard s.count % 2 == 0 else { return nil }
+        var out = Data(capacity: s.count / 2)
+        var idx = s.startIndex
+        while idx < s.endIndex {
+            let next = s.index(idx, offsetBy: 2)
+            guard let b = UInt8(s[idx..<next], radix: 16) else { return nil }
+            out.append(b)
+            idx = next
+        }
+        self = out
     }
 }
 
@@ -55,8 +64,9 @@ enum Author {
     static let linktree = "https://linktr.ee/emanuele_tech"
     /// deep-link al bot che verifica l'iscrizione al canale e rimanda lo sblocco
     static let telegramBot = "https://t.me/emanueletech_bot?start=unlock"
-    /// segreto condiviso col bot per firmare il token di sblocco (== UNLOCK_SECRET nel bot)
-    static let unlockSecret = "73c0919734d2184c2f8d09006baf5fec200dfab357fc1d2bc443c23f49b3e28c"
+    /// chiave PUBBLICA Ed25519 (hex) che verifica i token firmati dal bot.
+    /// La chiave privata sta solo sul server del bot: vedi BOT_UNLOCK.md.
+    static let unlockPublicKey = "a40ab23d9a295c5809dc7cfd926dce85abeee3aa435cec04bd75871769abcaff"
     /// consente lo sblocco "onore" per chi segue su IG/MakerWorld (non verificabile).
     /// Metti false per accettare SOLO la verifica Telegram.
     static let allowHonorUnlock = true

@@ -412,10 +412,11 @@ option { background: #18203a; }
 }
 .socials .ig { background: #d6336c; } .socials .mw { background: #f08c00; } .socials .yt { background: #e03131; }
 .coderow { display: flex; gap: 8px; align-items: center; }
+/* accoglie il token firmato incollato (~140 caratteri), non più un codice a 6 cifre */
 #unlockCode {
-  width: 130px; text-align: center; font-size: 15px; font-weight: 600;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; text-transform: uppercase;
-  padding: 9px; user-select: text;
+  width: 320px; text-align: center; font-size: 11.5px; font-weight: 600;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  padding: 11px 9px; user-select: text;
 }
 #unlockCode.wrong { border-color: #ff6b6b; }
 .err { color: #ff8787; font-size: 11px; }

@@ -137,7 +137,7 @@ enum Loc {
         "gateTgHint": ["it":"Iscriviti al canale e il bot sblocca l'app da solo — nessun codice da scrivere.","en":"Join the channel and the bot unlocks the app for you — no codes to type.","es":"Únete al canal y el bot desbloquea la app — sin códigos.","fr":"Rejoignez le canal et le bot déverrouille l'app — sans code."],
         "gateOr": ["it":"Non usi Telegram? Seguimi qui e continua:","en":"No Telegram? Follow me here and continue:","es":"¿Sin Telegram? Sígueme aquí y continúa:","fr":"Pas de Telegram ? Suivez-moi ici et continuez :"],
         "gateHonor": ["it":"Ho seguito, continua","en":"I followed, continue","es":"Ya te sigo, continuar","fr":"Je vous suis, continuer"],
-        "gateCodeMobile": ["it":"Dal telefono? Inserisci il codice che ti manda il bot:","en":"On your phone? Enter the code the bot sends you:","es":"¿Desde el móvil? Introduce el código del bot:","fr":"Sur téléphone ? Entrez le code envoyé par le bot :"],
+        "gateCodeMobile": ["it":"Il link non si apre? Incolla qui il codice completo che ti manda il bot:","en":"Link won't open? Paste the full code the bot sends you:","es":"¿No se abre el enlace? Pega aquí el código completo del bot:","fr":"Le lien ne s'ouvre pas ? Collez ici le code complet du bot :"],
         "gateCodePlaceholder": ["it":"CODICE","en":"CODE","es":"CÓDIGO","fr":"CODE"],
         "gateCodeWrong": ["it":"Codice non valido o scaduto.","en":"Invalid or expired code.","es":"Código no válido o caducado.","fr":"Code invalide ou expiré."],
         "resetDefaults": ["it":"Ripristina predefiniti","en":"Reset defaults","es":"Restaurar valores","fr":"Réinitialiser"],

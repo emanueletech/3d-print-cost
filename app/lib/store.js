@@ -19,8 +19,9 @@ const Author = {
   linktree: 'https://linktr.ee/emanuele_tech',
   // bot che verifica l'iscrizione al canale e rimanda il token di sblocco
   telegramBot: 'https://t.me/emanueletech_bot?start=unlock',
-  // segreto condiviso col bot per firmare il token (== UNLOCK_SECRET nel bot)
-  unlockSecret: '73c0919734d2184c2f8d09006baf5fec200dfab357fc1d2bc443c23f49b3e28c',
+  // chiave PUBBLICA Ed25519 (hex) che verifica i token firmati dal bot.
+  // La chiave privata sta solo sul server del bot: vedi native/BOT_UNLOCK.md.
+  unlockPublicKey: 'a40ab23d9a295c5809dc7cfd926dce85abeee3aa435cec04bd75871769abcaff',
   allowHonorUnlock: true,
   urlScheme: 'printcost',
 };

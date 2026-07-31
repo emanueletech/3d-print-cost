@@ -92,9 +92,10 @@ struct GateView: View {
                 VStack(spacing: 6) {
                     Text(m.t("gateCodeMobile")).font(.system(size: 11.5)).foregroundStyle(.secondary)
                     HStack(spacing: 8) {
+                        // accoglie il token firmato incollato (~140 caratteri), non più un codice a 6 cifre
                         TextField(m.t("gateCodePlaceholder"), text: $code)
-                            .textFieldStyle(.plain).font(.system(size: 15, weight: .semibold, design: .monospaced))
-                            .multilineTextAlignment(.center).frame(width: 130)
+                            .textFieldStyle(.plain).font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                            .multilineTextAlignment(.center).frame(width: 280)
                             .padding(.vertical, 8).background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.12)))
                             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(codeWrong ? Color.red : .white.opacity(0.2)))
                             .onSubmit(submitCode)
