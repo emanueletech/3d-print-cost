@@ -2,7 +2,9 @@
 # Compila l'app nativa SwiftUI (Liquid Glass, macOS 26) in un bundle .app
 set -e
 cd "$(dirname "$0")"
+# SDK: Command Line Tools se presenti (Mac di sviluppo), altrimenti xcrun (runner CI con Xcode)
 SDK="/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk"
+[ -d "$SDK" ] || SDK="$(xcrun --sdk macosx --show-sdk-path)"
 swiftc -parse-as-library -sdk "$SDK" -target arm64-apple-macos26.0 \
   -o CostoStampa Sources/*.swift
 APP="3D Print Cost.app"

@@ -1,7 +1,9 @@
-name: Installer Windows
+name: Pacchetti Windows e macOS
 
-# L'installer .exe va costruito su Windows: qui lo produce GitHub, così non
-# serve un PC Windows. Lancialo a mano da Actions, oppure pubblica un tag v*.
+# GitHub costruisce tutti i pacchetti: gli .exe su un runner Windows e il .dmg
+# su un runner macOS (arm64, Xcode 26). Lancialo a mano da Actions per i
+# pacchetti di prova, oppure pubblica un tag v*: in quel caso i file vengono
+# allegati alla release insieme alle note in .github/RELEASE_NOTES.md.
 on:
   workflow_dispatch:
   push:
@@ -14,7 +16,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  windows:
     runs-on: windows-latest
     defaults:
       run:
@@ -52,5 +54,33 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
+          name: 3D Print Cost ${{ github.ref_name }}
+          body_path: .github/RELEASE_NOTES.md
           files: |
             app/dist/*.exe
+
+  macos:
+    runs-on: macos-26
+    # dopo il job Windows: sui tag è lui a creare la release, qui si allega solo il DMG
+    needs: windows
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compila l'app nativa e crea il DMG
+        run: DMG_OUT="$PWD/native/3D-Print-Cost.dmg" bash native/make-dmg.sh
+
+      - name: Carica il pacchetto
+        uses: actions/upload-artifact@v7
+        with:
+          name: 3D-Print-Cost-macOS
+          path: native/3D-Print-Cost.dmg
+          if-no-files-found: error
+
+      - name: Allega alla release (solo sui tag)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          name: 3D Print Cost ${{ github.ref_name }}
+          body_path: .github/RELEASE_NOTES.md
+          files: native/3D-Print-Cost.dmg
