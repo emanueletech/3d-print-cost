@@ -19,7 +19,7 @@
 | | IT | EN |
 |---|---|---|
 | **Windows** | Installa `3D-Print-Cost-Setup.exe` (vedi sotto) | Install `3D-Print-Cost-Setup.exe` (see below) |
-| **macOS** | App nativa in `native/` — `bash native/make-dmg.sh` crea il `.dmg` | Native app in `native/` — `bash native/make-dmg.sh` builds the `.dmg` |
+| **macOS** | Scarica `3D-Print-Cost.dmg` dalla pagina **Releases** (vedi sotto) | Download `3D-Print-Cost.dmg` from the **Releases** page (see below) |
 | **Browser** | Apri `index.html` (versione ridotta, senza slicing) | Open `index.html` (lite version, no slicing) |
 
 ---
@@ -60,6 +60,43 @@ npm install
 npm start        # avvia l'app in sviluppo / run in development
 npm test         # test di zip, parsing 3mf, remap, sblocco, mesh
 npm run dist:win # crea dist/3D-Print-Cost-Setup-<versione>.exe + versione portatile
+```
+
+---
+
+## macOS
+
+### Installazione / Install
+
+**IT**
+
+1. Scarica `3D-Print-Cost.dmg` dalla pagina **Releases**.
+2. Aprilo e trascina l'app nella cartella **Applicazioni**.
+3. Al primo avvio macOS dice che l'app "non può essere aperta" perché non è firmata con un certificato a pagamento. Rimedio: tasto destro sull'app → **Apri** → **Apri**. In alternativa, da Terminale:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/3D Print Cost.app"
+```
+
+Requisiti: **macOS 26 o successivo** su **Apple Silicon** (l'app è compilata per `arm64`; i Mac Intel non sono supportati). Su Mac più vecchi si può usare la versione web (`index.html`).
+
+**EN**
+
+1. Download `3D-Print-Cost.dmg` from the **Releases** page.
+2. Open it and drag the app into **Applications**.
+3. On first launch macOS says the app "cannot be opened" because it is not signed with a paid certificate. Fix: right-click the app → **Open** → **Open**, or from Terminal:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/3D Print Cost.app"
+```
+
+Requirements: **macOS 26 or later** on **Apple Silicon** (the app is built for `arm64`; Intel Macs are not supported). On older Macs use the web version (`index.html`).
+
+### Costruire l'app / Build the app
+
+```bash
+bash native/build.sh     # compila 3D Print Cost.app
+bash native/make-dmg.sh  # crea il .dmg distribuibile
 ```
 
 ## Struttura / Layout
