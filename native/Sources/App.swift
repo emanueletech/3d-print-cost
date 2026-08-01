@@ -214,7 +214,15 @@ final class AppModel: ObservableObject {
         if ok { setUnlocked() }
         return ok
     }
-    func openSocial(_ url: String) { if let u = URL(string: url) { NSWorkspace.shared.open(u) } }
+    /// Apre un link social. Per i link Telegram usa l'app nativa (tg://) quando è installata:
+    /// evita la scheda t.me nel browser che poi rilancia Telegram a ogni avvio del browser.
+    func openSocial(_ url: String) {
+        if let deep = Author.telegramDeepLink(url), let d = URL(string: deep),
+           NSWorkspace.shared.urlForApplication(toOpen: d) != nil {
+            NSWorkspace.shared.open(d); return
+        }
+        if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+    }
 
     /// gestisce il ritorno dal bot: printcost://unlock?t=<exp>.<hmac>
     func handleURL(_ url: URL) {

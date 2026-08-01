@@ -71,6 +71,24 @@ enum Author {
     /// Metti false per accettare SOLO la verifica Telegram.
     static let allowHonorUnlock = true
     static let urlScheme = "printcost"
+
+    /// Converte un link `https://t.me/<nome>[?start=x]` nel deep-link nativo `tg://resolve?...`.
+    /// Serve a NON lasciare una scheda t.me aperta nel browser: quella pagina rilancia Telegram
+    /// da sola a ogni ricarica/ripristino sessione (Chrome ricorda il permesso per lo schema tg:),
+    /// per cui aprendo un qualsiasi altro link — es. le offerte Amazon — Telegram tornava in primo piano.
+    static func telegramDeepLink(_ https: String) -> String? {
+        guard let c = URLComponents(string: https), let host = c.host,
+              host == "t.me" || host == "telegram.me" else { return nil }
+        let name = c.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard !name.isEmpty, !name.contains("/") else { return nil }   // solo @username / bot
+        var out = URLComponents(string: "tg://resolve")!
+        var q = [URLQueryItem(name: "domain", value: name)]
+        if let start = c.queryItems?.first(where: { $0.name == "start" })?.value {
+            q.append(URLQueryItem(name: "start", value: start))
+        }
+        out.queryItems = q
+        return out.url?.absoluteString
+    }
 }
 
 /// stato di formattazione valuta corrente (aggiornato dal modello, letto da eur())

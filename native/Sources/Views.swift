@@ -182,7 +182,7 @@ struct Sidebar: View {
     }
 
     @ViewBuilder func socialBtn(_ icon: String, _ url: String, _ help: String) -> some View {
-        Button { if let u = URL(string: url) { NSWorkspace.shared.open(u) } } label: {
+        Button { m.openSocial(url) } label: {
             Image(systemName: icon).font(.system(size: 12)).frame(width: 24, height: 24)
                 .background(Circle().fill(.white.opacity(0.1)))
         }.buttonStyle(.plain).foregroundStyle(.secondary).help(help)
