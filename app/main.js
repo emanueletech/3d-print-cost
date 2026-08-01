@@ -335,8 +335,10 @@ if (!app.requestSingleInstanceLock()) {
     nativeTheme.themeSource = 'dark'; // l'interfaccia è disegnata solo in scuro
     loadState();
 
-    // protocollo printcost:// (l'installer NSIS lo registra anche a livello di sistema)
-    if (!app.isDefaultProtocolClient(Author.urlScheme)) {
+    // protocollo printcost:// (l'installer NSIS lo registra anche a livello di sistema).
+    // MAI su macOS: lì il gestore è l'app nativa e registrarsi qui glielo ruberebbe,
+    // facendo aprire i link di sblocco nell'app sbagliata.
+    if (!isMac && !app.isDefaultProtocolClient(Author.urlScheme)) {
       if (isWin && !app.isPackaged && process.argv[1]) {
         app.setAsDefaultProtocolClient(Author.urlScheme, process.execPath, [path.resolve(process.argv[1])]);
       } else {

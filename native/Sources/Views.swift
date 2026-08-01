@@ -71,42 +71,42 @@ struct GateView: View {
                 Text(m.t("gateBody")).font(.system(size: 14)).foregroundStyle(.secondary)
                     .multilineTextAlignment(.center).frame(maxWidth: 430).fixedSize(horizontal: false, vertical: true)
 
-                // metodo consigliato: verifica automatica via Telegram
-                Button { m.openSocial(Author.telegramBot) } label: {
-                    HStack(spacing: 8) { Image(systemName: "paperplane.fill"); Text(m.t("gateTelegram")).fontWeight(.semibold) }
-                        .frame(maxWidth: 300).padding(.vertical, 4)
-                }.buttonStyle(.borderedProminent).controlSize(.large).tint(Color(hex: "229ED9"))
-                Text(m.t("gateTgHint")).font(.system(size: 11.5)).foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center).frame(maxWidth: 430)
-
-                Divider().frame(width: 300).padding(.vertical, 2)
-
-                // alternativa: seguo altrove (non verificabile)
-                Text(m.t("gateOr")).font(.system(size: 12)).foregroundStyle(.secondary)
+                // 1) prima il follow: apre il profilo e abilita il passaggio Telegram
                 HStack(spacing: 14) {
                     follow("camera.fill", "Instagram", .pink, Author.instagram)
                     follow("cube.fill", "MakerWorld", .orange, Author.makerworld)
                     follow("play.rectangle.fill", "YouTube", .red, Author.youtube)
                 }
-                // codice per chi legge il bot dal telefono
-                VStack(spacing: 6) {
-                    Text(m.t("gateCodeMobile")).font(.system(size: 11.5)).foregroundStyle(.secondary)
-                    HStack(spacing: 8) {
-                        // accoglie il token firmato incollato (~140 caratteri), non più un codice a 6 cifre
-                        TextField(m.t("gateCodePlaceholder"), text: $code)
-                            .textFieldStyle(.plain).font(.system(size: 11.5, weight: .semibold, design: .monospaced))
-                            .multilineTextAlignment(.center).frame(width: 280)
-                            .padding(.vertical, 8).background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.12)))
-                            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(codeWrong ? Color.red : .white.opacity(0.2)))
-                            .onSubmit(submitCode)
-                        Button(m.t("gateUnlock")) { submitCode() }.buttonStyle(.borderedProminent).controlSize(.regular)
-                    }
-                    if codeWrong { Text(m.t("gateCodeWrong")).font(.system(size: 11)).foregroundStyle(.red) }
-                }
 
-                if Author.allowHonorUnlock {
-                    Button(m.t("gateHonor")) { m.unlockHonor() }.buttonStyle(.bordered).controlSize(.small)
+                Divider().frame(width: 300).padding(.vertical, 2)
+
+                // 2) poi la verifica via Telegram — attiva solo dopo il follow
+                Group {
+                    Button { m.openSocial(Author.telegramBot) } label: {
+                        HStack(spacing: 8) { Image(systemName: "paperplane.fill"); Text(m.t("gateTelegram")).fontWeight(.semibold) }
+                            .frame(maxWidth: 300).padding(.vertical, 4)
+                    }.buttonStyle(.borderedProminent).controlSize(.large).tint(Color(hex: "229ED9"))
+                    Text(m.t(m.followClicked ? "gateTgHint" : "gateLocked")).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center).frame(maxWidth: 430)
+
+                    // token incollato a mano, per quando il deep-link non si apre
+                    VStack(spacing: 6) {
+                        Text(m.t("gateCodeMobile")).font(.system(size: 11.5)).foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            // accoglie il token firmato incollato (~140 caratteri), non più un codice a 6 cifre
+                            TextField(m.t("gateCodePlaceholder"), text: $code)
+                                .textFieldStyle(.plain).font(.system(size: 11.5, weight: .semibold, design: .monospaced))
+                                .multilineTextAlignment(.center).frame(width: 280)
+                                .padding(.vertical, 8).background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.12)))
+                                .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(codeWrong ? Color.red : .white.opacity(0.2)))
+                                .onSubmit(submitCode)
+                            Button(m.t("gateUnlock")) { submitCode() }.buttonStyle(.borderedProminent).controlSize(.regular)
+                        }
+                        if codeWrong { Text(m.t("gateCodeWrong")).font(.system(size: 11)).foregroundStyle(.red) }
+                    }
                 }
+                .disabled(!m.followClicked)
+                .opacity(m.followClicked ? 1 : 0.55)
 
                 HStack(spacing: 7) {
                     Image(systemName: "info.circle").font(.system(size: 10)).foregroundStyle(.tertiary)
@@ -123,7 +123,7 @@ struct GateView: View {
     }
     func submitCode() { withAnimation { codeWrong = !m.tryUnlockCode(code) } }
     @ViewBuilder func follow(_ icon: String, _ name: String, _ tint: Color, _ url: String) -> some View {
-        Button { m.openSocial(url) } label: {
+        Button { m.followTapped(url) } label: {
             VStack(spacing: 6) {
                 Image(systemName: icon).font(.system(size: 17)).foregroundStyle(.white)
                     .frame(width: 44, height: 44).background(Circle().fill(tint))

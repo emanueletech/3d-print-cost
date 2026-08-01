@@ -142,10 +142,16 @@
 
     gateTitle: { it: 'App gratuita', en: 'Free app', es: 'App gratis', fr: 'App gratuite' },
     gateBody: {
-      it: "Questa app è gratis. In cambio, ti chiedo solo un follow: seguimi su Instagram, oppure — se non ce l'hai — sul canale Telegram o su MakerWorld.",
-      en: "This app is free. In return, I just ask for a follow: on Instagram, or — if you don't have it — my Telegram channel or MakerWorld.",
-      es: 'Esta app es gratis. A cambio, solo te pido un follow: en Instagram, o — si no lo tienes — en Telegram o MakerWorld.',
-      fr: "Cette app est gratuite. En échange, juste un suivi : sur Instagram, ou — sinon — Telegram ou MakerWorld.",
+      it: 'Questa app è gratis. In cambio ti chiedo solo un follow: apri uno dei miei profili qui sotto e seguimi, poi sblocca con Telegram.',
+      en: 'This app is free. In return I just ask for a follow: open one of my profiles below and follow me, then unlock with Telegram.',
+      es: 'Esta app es gratis. A cambio solo te pido un follow: abre uno de mis perfiles aquí abajo y sígueme, luego desbloquea con Telegram.',
+      fr: "Cette app est gratuite. En échange, juste un follow : ouvrez un de mes profils ci-dessous et suivez-moi, puis déverrouillez avec Telegram.",
+    },
+    gateLocked: {
+      it: 'Si attiva dopo che hai aperto uno dei profili qui sopra.',
+      en: 'Unlocks after you open one of the profiles above.',
+      es: 'Se activa después de abrir uno de los perfiles de arriba.',
+      fr: "S'active après l'ouverture d'un des profils ci-dessus.",
     },
     gateUnlock: { it: "Sblocca l'app", en: 'Unlock the app', es: 'Desbloquear', fr: 'Déverrouiller' },
     gateTelegram: { it: 'Sblocca con Telegram', en: 'Unlock with Telegram', es: 'Desbloquear con Telegram', fr: 'Déverrouiller avec Telegram' },

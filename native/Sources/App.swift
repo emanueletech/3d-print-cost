@@ -127,7 +127,8 @@ enum Loc {
         "affiliate": ["it":"In qualità di Affiliato Amazon, ricevo un guadagno dagli acquisti idonei.","en":"As an Amazon Associate I earn from qualifying purchases.","es":"Como Afiliado de Amazon, gano con las compras que cumplen los requisitos.","fr":"En tant que Partenaire Amazon, je réalise un bénéfice sur les achats remplissant les conditions requises."],
         // schermata di sblocco
         "gateTitle": ["it":"App gratuita","en":"Free app","es":"App gratis","fr":"App gratuite"],
-        "gateBody": ["it":"Questa app è gratis. In cambio, ti chiedo solo un follow: seguimi su Instagram, oppure — se non ce l'hai — sul canale Telegram o su MakerWorld.","en":"This app is free. In return, I just ask for a follow: on Instagram, or — if you don't have it — my Telegram channel or MakerWorld.","es":"Esta app es gratis. A cambio, solo te pido un follow: en Instagram, o — si no lo tienes — en Telegram o MakerWorld.","fr":"Cette app est gratuite. En échange, juste un suivi : sur Instagram, ou — sinon — Telegram ou MakerWorld."],
+        "gateBody": ["it":"Questa app è gratis. In cambio ti chiedo solo un follow: apri uno dei miei profili qui sotto e seguimi, poi sblocca con Telegram.","en":"This app is free. In return I just ask for a follow: open one of my profiles below and follow me, then unlock with Telegram.","es":"Esta app es gratis. A cambio solo te pido un follow: abre uno de mis perfiles aquí abajo y sígueme, luego desbloquea con Telegram.","fr":"Cette app est gratuite. En échange, juste un follow : ouvrez un de mes profils ci-dessous et suivez-moi, puis déverrouillez avec Telegram."],
+        "gateLocked": ["it":"Si attiva dopo che hai aperto uno dei profili qui sopra.","en":"Unlocks after you open one of the profiles above.","es":"Se activa después de abrir uno de los perfiles de arriba.","fr":"S'active après l'ouverture d'un des profils ci-dessus."],
         "gateStep": ["it":"Poi inserisci il codice di sblocco che trovi sul mio profilo/canale.","en":"Then enter the unlock code you'll find on my profile/channel.","es":"Luego introduce el código de desbloqueo de mi perfil/canal.","fr":"Puis entrez le code de déblocage sur mon profil/canal."],
         "gateCode": ["it":"Codice di sblocco","en":"Unlock code","es":"Código de desbloqueo","fr":"Code de déblocage"],
         "gateUnlock": ["it":"Sblocca l'app","en":"Unlock the app","es":"Desbloquear","fr":"Déverrouiller"],
@@ -205,6 +206,13 @@ final class AppModel: ObservableObject {
 
     // Sblocco: verifica Telegram (token firmato via deep-link) oppure "onore" per IG/MakerWorld
     @Published var unlocked: Bool = UserDefaults.standard.bool(forKey: "app_unlocked")
+    /// il passaggio Telegram del gate si attiva solo dopo aver aperto uno dei profili social
+    @Published var followClicked: Bool = UserDefaults.standard.bool(forKey: "follow_clicked")
+    func followTapped(_ url: String) {
+        openSocial(url)
+        followClicked = true
+        UserDefaults.standard.set(true, forKey: "follow_clicked")
+    }
     private func setUnlocked() { unlocked = true; UserDefaults.standard.set(true, forKey: "app_unlocked") }
     func unlockHonor() { setUnlocked() }
     /// sblocco cross-device: codice corto ricevuto dal bot (per chi usa Telegram dal telefono)

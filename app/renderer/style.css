@@ -309,6 +309,11 @@ td.sale, .tbl.edit td:last-child { white-space: nowrap; }
 .btn.primary:hover { background: #6cb6ff; }
 .btn.ghost { background: none; }
 .btn.tg { background: #229ed9; border-color: transparent; color: #fff; width: 300px; }
+.btn:disabled, input:disabled { opacity: .45; pointer-events: none; }
+
+/* passaggio Telegram del gate: spento finché non si apre uno dei profili */
+.tgstep { display: flex; flex-direction: column; align-items: center; gap: 13px; width: 100%; }
+.tgstep.off { opacity: .55; }
 
 select, input[type="text"], input[type="number"] {
   background: rgba(0, 0, 0, .28); color: var(--txt); font: inherit;

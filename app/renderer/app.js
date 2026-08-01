@@ -688,26 +688,29 @@
       return;
     }
     gate.hidden = false;
+    // flusso in due passi: 1) apri e segui uno dei profili → 2) si attiva lo sblocco Telegram
+    const followed = !!M.store.followClicked;
+    const dis = followed ? '' : 'disabled';
     gate.innerHTML = `<div class="gatebox">
       <div class="lock">🔓</div>
       <h1>${esc(t('gateTitle'))}</h1>
       <p>${esc(t('gateBody'))}</p>
-      <button class="btn tg" data-act="openBot">✈︎ ${esc(t('gateTelegram'))}</button>
-      <div class="note center">${esc(t('gateTgHint'))}</div>
-      <hr>
-      <div class="note center">${esc(t('gateOr'))}</div>
       <div class="socials">
-        <button data-open="${AUTHOR.instagram}"><i class="ig">📷</i>Instagram</button>
-        <button data-open="${AUTHOR.makerworld}"><i class="mw">🧊</i>MakerWorld</button>
-        <button data-open="${AUTHOR.youtube}"><i class="yt">▶︎</i>YouTube</button>
+        <button data-follow="${AUTHOR.instagram}"><i class="ig">📷</i>Instagram</button>
+        <button data-follow="${AUTHOR.makerworld}"><i class="mw">🧊</i>MakerWorld</button>
+        <button data-follow="${AUTHOR.youtube}"><i class="yt">▶︎</i>YouTube</button>
       </div>
-      <div class="note center">${esc(t('gateCodeMobile'))}</div>
-      <div class="coderow">
-        <input id="unlockCode" placeholder="${esc(t('gateCodePlaceholder'))}" autocomplete="off" spellcheck="false">
-        <button class="btn primary" data-act="unlockCode">${esc(t('gateUnlock'))}</button>
+      <hr>
+      <div class="tgstep${followed ? '' : ' off'}">
+        <button class="btn tg" data-act="openBot" ${dis}>✈︎ ${esc(t('gateTelegram'))}</button>
+        <div class="note center">${esc(t(followed ? 'gateTgHint' : 'gateLocked'))}</div>
+        <div class="note center">${esc(t('gateCodeMobile'))}</div>
+        <div class="coderow">
+          <input id="unlockCode" placeholder="${esc(t('gateCodePlaceholder'))}" autocomplete="off" spellcheck="false" ${dis}>
+          <button class="btn primary" data-act="unlockCode" ${dis}>${esc(t('gateUnlock'))}</button>
+        </div>
+        <div class="err" id="codeErr" hidden>${esc(t('gateCodeWrong'))}</div>
       </div>
-      <div class="err" id="codeErr" hidden>${esc(t('gateCodeWrong'))}</div>
-      <button class="btn ghost small" data-act="unlockHonor">${esc(t('gateHonor'))}</button>
       <div class="note dim center">ⓘ ${esc(t('affiliate'))}</div>
     </div>`;
   }
@@ -866,6 +869,18 @@
   function bindEvents() {
     document.addEventListener('click', async (e) => {
       const hit = (attr) => e.target.closest(`[${attr}]`);
+
+      // follow dal gate: apre il profilo e abilita il passaggio Telegram
+      const fol = hit('data-follow');
+      if (fol) {
+        api.open(fol.getAttribute('data-follow'));
+        if (!M.store.followClicked) {
+          M.store.followClicked = true;
+          persist();
+          renderGate();
+        }
+        return;
+      }
 
       const open = hit('data-open');
       if (open) return api.open(open.getAttribute('data-open'));

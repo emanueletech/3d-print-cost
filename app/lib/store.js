@@ -157,6 +157,7 @@ function emptyState() {
     eurRate: 1.0,
     lang: null,
     unlocked: false,
+    followClicked: false,
     bambuPath: '',
     source: 'bambuRefill',
     msrp: 22.99,
