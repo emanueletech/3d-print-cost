@@ -1140,7 +1140,9 @@
     const [store, info, defaults] = await Promise.all([api.loadStore(), api.info(), api.defaults()]);
     M.store = store;
     M.bambu = info.bambu;
-    M.lang = store.lang || (LANGS.find((l) => l.id === (info.locale || 'it').slice(0, 2)) || LANGS[0]).id;
+    // lingua: scelta salvata → lingua di sistema → inglese (per i sistemi non IT/EN/ES/FR)
+    M.lang = store.lang
+      || (LANGS.find((l) => l.id === (info.locale || 'en').slice(0, 2)) || LANGS.find((l) => l.id === 'en')).id;
     if (!store.selPrinter && store.printers.length) M.store.selPrinter = store.printers[0].name;
     document.documentElement.lang = M.lang;
 

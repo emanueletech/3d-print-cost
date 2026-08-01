@@ -190,8 +190,8 @@ final class AppModel: ObservableObject {
 
     @Published var lang: Lang = {
         if let s = UserDefaults.standard.string(forKey: "lang"), let l = Lang(rawValue: s) { return l }
-        let sys = Locale.current.language.languageCode?.identifier ?? "it"
-        return Lang(rawValue: sys) ?? .it
+        let sys = Locale.current.language.languageCode?.identifier ?? "en"
+        return Lang(rawValue: sys) ?? .en   // ripiego inglese per le lingue non tradotte
     }() { didSet {
         UserDefaults.standard.set(lang.rawValue, forKey: "lang")
         // cambiando lingua, allinea la valuta (e il tasso di default)

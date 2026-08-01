@@ -134,7 +134,7 @@ const MENU = {
 };
 
 function buildMenu(lang) {
-  const t = MENU[lang] || MENU.it;
+  const t = MENU[lang] || MENU.en; // ripiego inglese per le lingue non tradotte
   const send = (msg) => () => win && win.webContents.send('menu', msg);
   const template = [
     ...(isMac ? [{ role: 'appMenu' }] : []),
@@ -345,7 +345,7 @@ if (!app.requestSingleInstanceLock()) {
     }
 
     registerIPC();
-    buildMenu(state.lang || (app.getLocale() || 'it').slice(0, 2));
+    buildMenu(state.lang || (app.getLocale() || 'en').slice(0, 2));
     createWindow();
     handleArgv(process.argv.slice(1));
 
