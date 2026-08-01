@@ -22,6 +22,13 @@ su GitHub: né nei messaggi di commit (trailer `Co-Authored-By`, link di session
 né nei titoli o nei corpi delle pull request, né nei commenti, né nei file del
 progetto. I messaggi di commit descrivono solo la modifica.
 
+## Lingue
+
+I testi rivolti al pubblico su GitHub — note di release, descrizione del
+repository, documenti come il README — vanno scritti **sia in italiano sia in
+inglese** (prima IT, poi EN, come già fa il README). I messaggi di commit
+restano in italiano.
+
 ## Struttura
 
 - `index.html` — versione web
