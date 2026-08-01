@@ -8,6 +8,11 @@ on:
     tags:
       - 'v*'
 
+# necessario per allegare i pacchetti alla release quando si pubblica un tag:
+# senza, lo step finale fallisce con "Resource not accessible by integration"
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
