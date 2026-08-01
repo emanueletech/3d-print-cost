@@ -6,6 +6,11 @@ name: Pacchetti Windows e macOS
 # allegati alla release insieme alle note in .github/RELEASE_NOTES.md.
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Se valorizzato (es. v1.1.2) crea il tag e pubblica la release"
+        required: false
+        default: ''
   push:
     tags:
       - 'v*'
@@ -50,11 +55,12 @@ jobs:
             app/dist/*.blockmap
           if-no-files-found: error
 
-      - name: Allega alla release (solo sui tag)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Allega alla release (tag pubblicato o richiesto dal dispatch)
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
         uses: softprops/action-gh-release@v3
         with:
-          name: 3D Print Cost ${{ github.ref_name }}
+          tag_name: ${{ inputs.release_tag }}
+          name: 3D Print Cost ${{ inputs.release_tag || github.ref_name }}
           body_path: .github/RELEASE_NOTES.md
           files: |
             app/dist/*.exe
@@ -77,10 +83,11 @@ jobs:
           path: native/3D-Print-Cost.dmg
           if-no-files-found: error
 
-      - name: Allega alla release (solo sui tag)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Allega alla release (tag pubblicato o richiesto dal dispatch)
+        if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
         uses: softprops/action-gh-release@v3
         with:
-          name: 3D Print Cost ${{ github.ref_name }}
+          tag_name: ${{ inputs.release_tag }}
+          name: 3D Print Cost ${{ inputs.release_tag || github.ref_name }}
           body_path: .github/RELEASE_NOTES.md
           files: native/3D-Print-Cost.dmg
