@@ -111,6 +111,12 @@ bash native/make-dmg.sh  # crea il .dmg distribuibile
 
 L'app desktop non richiede né `unzip` né Python: legge e riscrive i `.3mf` in JavaScript, quindi funziona su Windows senza installare nulla.
 
+## Licenza / License
+
+**IT** — L'app è gratuita per tutti, anche per uso professionale. Il codice è pubblico per trasparenza e contributi, ma i diritti restano dell'autore: non è consentito ridistribuire l'app o versioni modificate, né rimuovere o alterare il meccanismo di sblocco e i crediti. Dettagli in [LICENSE.md](LICENSE.md).
+
+**EN** — The app is free for everyone, including professional use. The code is public for transparency and contributions, but all rights remain with the author: redistributing the app or modified versions, or removing/altering the unlock mechanism and credits, is not permitted. Details in [LICENSE.md](LICENSE.md).
+
 ## Note
 
 - I tempi e i grammi vengono letti dal 3mf slicato (`Metadata/slice_info.config`): l'app non slica da sola, chiede a Bambu Studio.
