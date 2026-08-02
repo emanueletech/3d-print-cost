@@ -1,5 +1,9 @@
 # Costo Stampa 3D · 3D Print Cost
 
+[![Download](https://img.shields.io/github/downloads/emanueletech/3d-print-cost/total?label=download&color=43d17a)](https://github.com/emanueletech/3d-print-cost/releases)
+[![Ultima versione](https://img.shields.io/github/v/release/emanueletech/3d-print-cost?label=versione&color=4aa3ff)](https://github.com/emanueletech/3d-print-cost/releases/latest)
+[![Stelle](https://img.shields.io/github/stars/emanueletech/3d-print-cost?label=stelle&color=ffb347)](https://github.com/emanueletech/3d-print-cost/stargazers)
+
 **IT** — Calcola tempi, materiale per colore e costo reale delle stampe 3D a partire dai file `.3mf` già slicati (Bambu Studio / OrcaSlicer).
 
 - Trascina uno o più `.3mf` slicati
