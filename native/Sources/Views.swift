@@ -39,6 +39,7 @@ struct RootView: View {
                 Detail().frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             if let b = m.busy { BusyBar(text: b) }
+            if let n = m.notice { NoticeBar(text: n).padding(.bottom, m.busy != nil ? 58 : 0) }
             if !m.unlocked { GateView() }        // schermata di sblocco all'avvio
         }
         .preferredColorScheme(.dark)
@@ -759,6 +760,21 @@ struct BusyBar: View {
             .background(Capsule().fill(.regularMaterial)).overlay(Capsule().strokeBorder(.white.opacity(0.15)))
             .shadow(color: .black.opacity(0.3), radius: 14, y: 6)
             .padding(.bottom, 26)
+    }
+}
+
+struct NoticeBar: View {
+    let text: String
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text(text).font(.system(size: 13))
+        }
+        .padding(.horizontal, 20).padding(.vertical, 11)
+        .background(Capsule().fill(.regularMaterial)).overlay(Capsule().strokeBorder(.orange.opacity(0.4)))
+        .shadow(color: .black.opacity(0.3), radius: 14, y: 6)
+        .padding(.bottom, 26)
+        .frame(maxWidth: 640)
     }
 }
 

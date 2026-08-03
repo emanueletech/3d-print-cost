@@ -113,6 +113,10 @@ enum Loc {
         "matReal": ["it":"Materiale (reale)","en":"Material (real)","es":"Material (real)","fr":"Matériau (réel)"],
         "openSection": ["it":"Apri la sezione","en":"Open section","es":"Abrir la sección","fr":"Ouvrir la section"],
         "thUsed": ["it":"Consumato","en":"Used","es":"Consumido","fr":"Consommé"],
+        "errGcode": ["it":"Questo file non è un .3mf: dallo slicer esporta il «file del piatto slicato» (.gcode.3mf), non il G-code puro.",
+                     "en":"That file isn't a .3mf: from your slicer export the \u{201C}plate sliced file\u{201D} (.gcode.3mf), not the plain G-code.",
+                     "es":"Ese archivo no es un .3mf: desde el laminador exporta el «archivo de placa laminado» (.gcode.3mf), no el G-code puro.",
+                     "fr":"Ce fichier n'est pas un .3mf : depuis le slicer, exportez le « fichier de plateau découpé » (.gcode.3mf), pas le G-code brut."],
         "matUsed": ["it":"consumato in stampa","en":"used in this print","es":"usado en impresión","fr":"utilisé à l'impression"],
         "ifBuy": ["it":"se le compri","en":"if you buy them","es":"si las compras","fr":"si vous les achetez"],
         // materiali
@@ -403,16 +407,36 @@ final class AppModel: ObservableObject {
     }
 
     func add(paths: [String]) {
-        for p in paths where p.lowercased().hasSuffix(".3mf") {
-            let name = (p as NSString).lastPathComponent
-            if files.contains(where: { $0.path == p }) { continue }
-            let lf = LoadedFile(name: name, path: p, state: Slicer.analyze(p))
-            files.append(lf)
-            // anteprime piatti in background (non bloccano l'interfaccia)
-            Task.detached {
-                let imgs = Slicer.thumbnails(p)
-                await MainActor.run { lf.thumbs = imgs }
+        var rejected = false
+        for p in paths {
+            let low = p.lowercased()
+            if low.hasSuffix(".3mf") {
+                let name = (p as NSString).lastPathComponent
+                if files.contains(where: { $0.path == p }) { continue }
+                let lf = LoadedFile(name: name, path: p, state: Slicer.analyze(p))
+                files.append(lf)
+                // anteprime piatti in background (non bloccano l'interfaccia)
+                Task.detached {
+                    let imgs = Slicer.thumbnails(p)
+                    await MainActor.run { lf.thumbs = imgs }
+                }
+            } else if ["stl", "obj", "step", "stp"].contains((low as NSString).pathExtension) {
+                section = .orient
+                loadMesh(p)
+            } else {
+                rejected = true   // es. G-code puro: senza metadati 3mf non c'è nulla da leggere
             }
+        }
+        if rejected { flash("errGcode") }
+    }
+
+    /// Avviso temporaneo in basso (l'equivalente del toast dell'app desktop).
+    @Published var notice: String? = nil
+    func flash(_ key: String) {
+        let msg = t(key)
+        notice = msg
+        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+            if self?.notice == msg { self?.notice = nil }
         }
     }
     func remove(_ f: LoadedFile) { files.removeAll { $0.id == f.id } }

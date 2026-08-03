@@ -1166,6 +1166,8 @@
       const models = paths.filter((p) => /\.(stl|obj|step|stp)$/i.test(p));
       addPaths(paths);
       if (models.length && !paths.some((p) => /\.3mf$/i.test(p))) loadModel(models[0]);
+      // niente di leggibile (es. G-code puro): avvisa invece di restare muti
+      else if (paths.length && !models.length && !paths.some((p) => /\.3mf$/i.test(p))) toast(t('errGcode'));
     });
 
     /* eventi dal processo principale */

@@ -46,6 +46,12 @@
     thEnergy: { it: 'Corrente', en: 'Energy', es: 'Energía', fr: 'Énergie' },
     thSpool: { it: 'Bobina', en: 'Spool', es: 'Bobina', fr: 'Bobine' },
     thUsed: { it: 'Consumato', en: 'Used', es: 'Consumido', fr: 'Consommé' },
+    errGcode: {
+      it: 'Questo file non è un .3mf: dallo slicer esporta il «file del piatto slicato» (.gcode.3mf), non il G-code puro.',
+      en: 'That file isn’t a .3mf: from your slicer export the “plate sliced file” (.gcode.3mf), not the plain G-code.',
+      es: 'Ese archivo no es un .3mf: desde el laminador exporta el «archivo de placa laminado» (.gcode.3mf), no el G-code puro.',
+      fr: 'Ce fichier n’est pas un .3mf : depuis le slicer, exportez le « fichier de plateau découpé » (.gcode.3mf), pas le G-code brut.',
+    },
     thQty: { it: 'Bobine', en: 'Spools', es: 'Bobinas', fr: 'Bobines' },
     thUnit: { it: '€/bobina', en: '€/spool', es: '€/bobina', fr: '€/bobine' },
     thTot: { it: 'Totale', en: 'Total', es: 'Total', fr: 'Total' },
