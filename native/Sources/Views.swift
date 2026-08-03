@@ -786,7 +786,9 @@ struct UpdateBar: View {
         HStack(spacing: 12) {
             Image(systemName: "arrow.down.circle.fill").foregroundStyle(.blue)
             Text(String(format: m.t("updateAvail"), tag)).font(.system(size: 13, weight: .medium))
-            Button(m.t("updateGet")) { openURL("https://github.com/emanueletech/3d-print-cost/releases/latest") }
+            Button(m.t("updateGet")) {
+                if let u = URL(string: "https://github.com/emanueletech/3d-print-cost/releases/latest") { NSWorkspace.shared.open(u) }
+            }
                 .buttonStyle(.borderedProminent).controlSize(.small)
             Button { m.updateTag = nil } label: { Image(systemName: "xmark.circle.fill") }
                 .buttonStyle(.plain).foregroundStyle(.secondary)
