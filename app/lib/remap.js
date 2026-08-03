@@ -76,6 +76,16 @@ function patchSettings(raw, machineProfile) {
   const cfg = JSON.parse(raw);
   const mach = JSON.parse(fs.readFileSync(machineProfile, 'utf8'));
   for (const k of MACHINE_KEYS) if (k in mach) cfg[k] = mach[k];
+  // La prime tower viene stampata da entrambi gli ugelli: traslata come gli
+  // oggetti e tenuta fuori dalle bande laterali da 25 mm, altrimenti il
+  // controllo del G-code boccia il piatto ("found gcode unprintable").
+  const shift = (key, off, lo, hi) => {
+    const clamp = (x) => String(Math.round(Math.min(Math.max(parseFloat(x) + off, lo), hi) * 1000) / 1000);
+    if (Array.isArray(cfg[key])) cfg[key] = cfg[key].map(clamp);
+    else if (cfg[key] != null) cfg[key] = clamp(cfg[key]);
+  };
+  shift('wipe_tower_x', OFF_X, 26, 244); // 330 - 25 di banda - 60 di torre
+  shift('wipe_tower_y', OFF_Y, 5, 255);
   return JSON.stringify(cfg, null, 4);
 }
 

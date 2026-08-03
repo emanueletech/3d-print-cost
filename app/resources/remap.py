@@ -58,6 +58,18 @@ def patch_settings(raw):
               "extruder_offset"):
         if k in mach:
             cfg[k] = mach[k]
+    # La prime tower viene stampata da entrambi gli ugelli: traslata come gli
+    # oggetti e tenuta fuori dalle bande laterali da 25 mm, altrimenti il
+    # controllo del G-code boccia il piatto ("found gcode unprintable").
+    def shift(key, off, lo, hi):
+        v = cfg.get(key)
+        clamp = lambda x: f"{min(max(float(x) + off, lo), hi):g}"
+        if isinstance(v, list):
+            cfg[key] = [clamp(x) for x in v]
+        elif v is not None:
+            cfg[key] = clamp(v)
+    shift("wipe_tower_x", OFF_X, 26, 244)   # 330 - 25 di banda - 60 di torre
+    shift("wipe_tower_y", OFF_Y, 5, 255)
     return json.dumps(cfg, indent=4)
 
 def main(src, dst):
