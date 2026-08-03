@@ -92,8 +92,11 @@ function analyze(file) {
     }
 
     seconds += secs;
+    // l'indice reale del piatto sta nel file: un export con il solo piatto 5
+    // deve restare "piatto 5", non diventare il piatto 1
+    const idx = /key="index" value="(\d+)"/.exec(body);
     plates.push({
-      index: plates.length + 1,
+      index: idx ? +idx[1] : plates.length + 1,
       seconds: secs,
       grams: plateGrams,
       colorGrams,

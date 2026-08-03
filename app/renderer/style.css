@@ -463,3 +463,24 @@ input, textarea { user-select: text; }
 }
 .pop-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pop-row b { font-variant-numeric: tabular-nums; }
+
+/* chip dei colori usati nel progetto (sezione Materiali) */
+.usedchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.uchip {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px;
+  padding: 6px 11px; border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.uchip .sw { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.3); display: inline-block; }
+.uchip b { font-variant-numeric: tabular-nums; color: #43d17a; }
+.uchip b.warn { color: #ff9a4a; }
+
+/* barra "nuova versione disponibile" */
+.update-bar {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 65;
+  display: flex; align-items: center; gap: 12px; font-size: 13px;
+  padding: 9px 16px; border-radius: 24px;
+  background: #151b2c; border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
+}
+.update-bar .x { background: none; border: none; color: rgba(238, 242, 251, 0.55); cursor: pointer; font-size: 13px; }

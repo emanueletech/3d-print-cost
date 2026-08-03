@@ -492,9 +492,14 @@
         })()
       : `<button class="btn small primary" data-slice="${f.id}">${esc(t('slice'))}</button>`;
 
+    // nei file già slicati contano solo i piatti con dati: le altre anteprime
+    // (es. export di un piatto solo, che conserva le immagini di tutti) vanno spente
+    const dataIdx = f.analysis ? new Set(f.analysis.plates.map((p) => p.index)) : null;
     const thumbs = f.thumbs.length
       ? `<div class="thumbs">${f.thumbs
           .map((src, i) => {
+            if (dataIdx && !dataIdx.has(i + 1))
+              return `<button class="thumb none" disabled><img src="${src}" alt=""><span class="idx">${i + 1}</span></button>`;
             const on = !f.excluded.has(i + 1);
             return `<button class="thumb${on ? ' on' : ''}" data-plate="${f.id}:${i + 1}">
               <img src="${src}" alt="">
@@ -603,7 +608,21 @@
       )
       .join('');
 
-    return `<div class="sub">${esc(t('sMaterials'))}</div>
+    // colori davvero usati nei file caricati: sotto mano, sopra il database
+    const used = colorRows();
+    const usedBar = used.length
+      ? card(
+          `<div class="k">${esc(t('usedColors'))}</div><div class="usedchips">${used
+            .map((r) => {
+              const mat = materialFor(r.hex, r.type);
+              const price = (mat ? esc(eur(effectiveCostPerKg(mat))) : '≈ ' + esc(eur(fallbackCostPerKg()))) + '/kg';
+              return `<span class="uchip"><i class="sw" style="background:${esc(r.hex)}"></i>${esc(r.type)} ${esc(r.name)} · ${Math.round(r.grams)} g · <b${mat ? '' : ' class="warn"'}>${price}</b></span>`;
+            })
+            .join('')}</div>`
+        )
+      : '';
+
+    return `<div class="sub">${esc(t('sMaterials'))}</div>${usedBar}
       <div class="toolbar">
         ${sel('brand', brands, brand)}${sel('type', types, type)}
         <select data-preset="item">${items.map((p, i) => `<option value="${i}">${esc(p.colorName)} · ${p.costPerKg.toFixed(2)} €/kg</option>`).join('')}</select>
@@ -1172,6 +1191,17 @@
 
     /* eventi dal processo principale */
     api.onOpenFiles((files) => addPaths(files));
+    api.onUpdate((tag) => {
+      const bar = document.createElement('div');
+      bar.className = 'update-bar';
+      bar.innerHTML = `<span>⬆︎ ${esc(fmt(t('updateAvail'), tag))}</span>
+        <button class="btn small primary" data-open="https://github.com/emanueletech/3d-print-cost/releases/latest">${esc(t('updateGet'))}</button>
+        <button class="x" data-dismiss="1">✕</button>`;
+      bar.addEventListener('click', (e) => {
+        if (e.target.closest('[data-dismiss]')) bar.remove();
+      });
+      document.body.appendChild(bar);
+    });
     api.onUnlocked(() => {
       M.store.unlocked = true;
       renderGate();

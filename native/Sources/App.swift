@@ -113,6 +113,9 @@ enum Loc {
         "matReal": ["it":"Materiale (reale)","en":"Material (real)","es":"Material (real)","fr":"Matériau (réel)"],
         "openSection": ["it":"Apri la sezione","en":"Open section","es":"Abrir la sección","fr":"Ouvrir la section"],
         "thUsed": ["it":"Consumato","en":"Used","es":"Consumido","fr":"Consommé"],
+        "usedColors": ["it":"Colori usati nel progetto","en":"Colors used in this project","es":"Colores usados en el proyecto","fr":"Couleurs utilisées dans le projet"],
+        "updateAvail": ["it":"È disponibile la versione %@","en":"Version %@ is available","es":"La versión %@ está disponible","fr":"La version %@ est disponible"],
+        "updateGet": ["it":"Scarica","en":"Download","es":"Descargar","fr":"Télécharger"],
         "errGcode": ["it":"Questo file non è un .3mf: dallo slicer esporta il «file del piatto slicato» (.gcode.3mf), non il G-code puro.",
                      "en":"That file isn't a .3mf: from your slicer export the \u{201C}plate sliced file\u{201D} (.gcode.3mf), not the plain G-code.",
                      "es":"Ese archivo no es un .3mf: desde el laminador exporta el «archivo de placa laminado» (.gcode.3mf), no el G-code puro.",
@@ -279,6 +282,29 @@ final class AppModel: ObservableObject {
         Money.currency = currency; Money.rate = eurRate
         selPrinterID = s.printers.first?.id
         if let p = s.printers.first { watts = p.watts }
+        checkUpdate()
+    }
+
+    // MARK: - Controllo aggiornamenti (release GitHub più recente; muto se offline)
+    @Published var updateTag: String? = nil
+    func checkUpdate() {
+        guard let url = URL(string: "https://api.github.com/repos/emanueletech/3d-print-cost/releases/latest") else { return }
+        var req = URLRequest(url: url); req.timeoutInterval = 8
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
+            guard let self, let data,
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let tag = obj["tag_name"] as? String else { return }
+            let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
+            let cur = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
+            func parts(_ s: String) -> [Int] { s.split(separator: ".").map { Int($0) ?? 0 } }
+            let a = parts(latest), b = parts(cur)
+            var newer = false
+            for i in 0..<max(a.count, b.count) {
+                let x = i < a.count ? a[i] : 0, y = i < b.count ? b[i] : 0
+                if x != y { newer = x > y; break }
+            }
+            if newer { DispatchQueue.main.async { self.updateTag = tag } }
+        }.resume()
     }
     func persist() {
         // evita salvataggi durante l'init

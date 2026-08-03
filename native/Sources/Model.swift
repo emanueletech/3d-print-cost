@@ -176,7 +176,10 @@ enum Slicer {
                 plateColors[key, default: 0] += g
             }
             seconds += secs
-            plates.append(PlateInfo(index: plates.count+1, seconds: secs, grams: pg, colorGrams: plateColors))
+            // l'indice reale del piatto sta nel file: un export con il solo
+            // piatto 5 deve restare "piatto 5", non diventare il piatto 1
+            let idx = matches("key=\"index\" value=\"(\\d+)\"", b).first.flatMap { Int($0[1]) } ?? (plates.count + 1)
+            plates.append(PlateInfo(index: idx, seconds: secs, grams: pg, colorGrams: plateColors))
         }
         if plates.isEmpty { return .notSliced }
         return .sliced(FileAnalysis(plates: plates, seconds: seconds, grams: grams, perColor: perColor))

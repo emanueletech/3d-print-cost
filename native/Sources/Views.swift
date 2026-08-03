@@ -40,6 +40,7 @@ struct RootView: View {
             }
             if let b = m.busy { BusyBar(text: b) }
             if let n = m.notice { NoticeBar(text: n).padding(.bottom, m.busy != nil ? 58 : 0) }
+            if let u = m.updateTag { UpdateBar(tag: u).frame(maxHeight: .infinity, alignment: .top).padding(.top, 16) }
             if !m.unlocked { GateView() }        // schermata di sblocco all'avvio
         }
         .preferredColorScheme(.dark)
@@ -526,9 +527,23 @@ struct FileCard: View {
                 }
                 // striscia anteprime piatti — cliccabili per includere/escludere
                 if !f.thumbs.isEmpty {
+                    // nei file già slicati contano solo i piatti con dati: le altre
+                    // anteprime (es. export di un piatto solo) restano spente
+                    let dataIdx: Set<Int>? = f.analysis.map { Set($0.plates.map(\.index)) }
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(Array(f.thumbs.enumerated()), id: \.offset) { i, img in
+                                if let d = dataIdx, !d.contains(i+1) {
+                                    ZStack(alignment: .bottomLeading) {
+                                        Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+                                            .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 9))
+                                            .saturation(0).opacity(0.22)
+                                            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.white.opacity(0.08)))
+                                        Text("\(i+1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white.opacity(0.5))
+                                            .padding(.horizontal, 5).padding(.vertical, 1)
+                                            .background(Capsule().fill(.black.opacity(0.4))).padding(4)
+                                    }.frame(width: 64, height: 64)
+                                } else {
                                 let on = !f.excluded.contains(i+1)
                                 Button { m.togglePlate(f, i+1) } label: {
                                     ZStack(alignment: .topTrailing) {
@@ -546,6 +561,7 @@ struct FileCard: View {
                                             .padding(4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                                     }.frame(width: 64, height: 64)
                                 }.buttonStyle(.plain)
+                                }
                             }
                         }.padding(.top, 1)
                     }
@@ -763,6 +779,24 @@ struct BusyBar: View {
     }
 }
 
+struct UpdateBar: View {
+    @EnvironmentObject var m: AppModel
+    let tag: String
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.down.circle.fill").foregroundStyle(.blue)
+            Text(String(format: m.t("updateAvail"), tag)).font(.system(size: 13, weight: .medium))
+            Button(m.t("updateGet")) { openURL("https://github.com/emanueletech/3d-print-cost/releases/latest") }
+                .buttonStyle(.borderedProminent).controlSize(.small)
+            Button { m.updateTag = nil } label: { Image(systemName: "xmark.circle.fill") }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 18).padding(.vertical, 10)
+        .background(Capsule().fill(.regularMaterial)).overlay(Capsule().strokeBorder(.white.opacity(0.15)))
+        .shadow(color: .black.opacity(0.3), radius: 14, y: 6)
+    }
+}
+
 struct NoticeBar: View {
     let text: String
     var body: some View {
@@ -785,6 +819,34 @@ struct MaterialsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(m.t("sMaterials")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+            // colori davvero usati nei file caricati: sotto mano, sopra il database
+            if !m.colorRows.isEmpty {
+                GlassCard(pad: 12) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        Label(m.t("usedColors"), systemImage: "paintpalette.fill")
+                            .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(m.colorRows) { r in
+                                    let mat = m.material(forHex: r.hex, type: r.type)
+                                    HStack(spacing: 7) {
+                                        Circle().fill(Color(hex: r.hex)).frame(width: 11, height: 11)
+                                            .overlay(Circle().strokeBorder(.white.opacity(0.3)))
+                                        Text("\(r.type) \(r.name)").font(.system(size: 12, weight: .medium))
+                                        Text(gramsLabel(r.grams)).font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
+                                        Text((mat != nil ? eur(mat!.effectiveCostPerKg) : "≈ " + eur(m.fallbackCostPerKg)) + "/kg")
+                                            .font(.system(size: 12, weight: .semibold)).monospacedDigit()
+                                            .foregroundStyle(mat != nil ? Color.green : Color.orange)
+                                    }
+                                    .padding(.horizontal, 10).padding(.vertical, 6)
+                                    .background(Capsule().fill(.white.opacity(0.06)))
+                                    .overlay(Capsule().strokeBorder(.white.opacity(0.12)))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
             HStack {
                 Menu {
                     Button(m.t("blankMaterial")) { m.materials.insert(Material(name: "Nuovo", type: "PLA Basic", colorHex: "#8E9089", costPerKg: 22.99, densityGcm3: 1.24), at: 0) }

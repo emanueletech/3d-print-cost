@@ -46,6 +46,9 @@
     thEnergy: { it: 'Corrente', en: 'Energy', es: 'Energía', fr: 'Énergie' },
     thSpool: { it: 'Bobina', en: 'Spool', es: 'Bobina', fr: 'Bobine' },
     thUsed: { it: 'Consumato', en: 'Used', es: 'Consumido', fr: 'Consommé' },
+    usedColors: { it: 'Colori usati nel progetto', en: 'Colors used in this project', es: 'Colores usados en el proyecto', fr: 'Couleurs utilisées dans le projet' },
+    updateAvail: { it: 'È disponibile la versione %@', en: 'Version %@ is available', es: 'La versión %@ está disponible', fr: 'La version %@ est disponible' },
+    updateGet: { it: 'Scarica', en: 'Download', es: 'Descargar', fr: 'Télécharger' },
     errGcode: {
       it: 'Questo file non è un .3mf: dallo slicer esporta il «file del piatto slicato» (.gcode.3mf), non il G-code puro.',
       en: 'That file isn’t a .3mf: from your slicer export the “plate sliced file” (.gcode.3mf), not the plain G-code.',

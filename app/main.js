@@ -76,6 +76,46 @@ function handleArgv(argv) {
 
 /* ---------- finestra ---------- */
 
+/* Controllo aggiornamenti: confronta l'ultima release GitHub con la versione
+   in esecuzione. Se la rete manca o la risposta è strana resta muto. */
+function checkUpdate() {
+  const https = require('https');
+  const req = https.get(
+    {
+      host: 'api.github.com',
+      path: '/repos/emanueletech/3d-print-cost/releases/latest',
+      headers: { 'User-Agent': '3D-Print-Cost' },
+      timeout: 8000,
+    },
+    (res) => {
+      let body = '';
+      res.on('data', (c) => (body += c));
+      res.on('end', () => {
+        try {
+          const tag = String(JSON.parse(body).tag_name || '');
+          const num = (v) => v.replace(/^v/, '').split('.').map((n) => parseInt(n, 10) || 0);
+          const a = num(tag);
+          const b = num(app.getVersion());
+          let newer = false;
+          for (let i = 0; i < Math.max(a.length, b.length); i++) {
+            const x = a[i] || 0;
+            const y = b[i] || 0;
+            if (x !== y) {
+              newer = x > y;
+              break;
+            }
+          }
+          if (newer && win) win.webContents.send('update-available', tag);
+        } catch {
+          /* risposta inattesa: nessun avviso */
+        }
+      });
+    }
+  );
+  req.on('timeout', () => req.destroy());
+  req.on('error', () => {});
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1320,
@@ -350,6 +390,7 @@ if (!app.requestSingleInstanceLock()) {
     buildMenu(state.lang || (app.getLocale() || 'en').slice(0, 2));
     createWindow();
     handleArgv(process.argv.slice(1));
+    checkUpdate();
 
     app.on('activate', () => {
       if (!BrowserWindow.getAllWindows().length) createWindow();
