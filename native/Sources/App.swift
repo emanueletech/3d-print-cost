@@ -112,6 +112,7 @@ enum Loc {
         "cUpfront": ["it":"Bobine da comprare (spesa iniziale)","en":"Spools to buy (upfront)","es":"Bobinas a comprar (inicial)","fr":"Bobines à acheter (initial)"],
         "matReal": ["it":"Materiale (reale)","en":"Material (real)","es":"Material (real)","fr":"Matériau (réel)"],
         "openSection": ["it":"Apri la sezione","en":"Open section","es":"Abrir la sección","fr":"Ouvrir la section"],
+        "thUsed": ["it":"Consumato","en":"Used","es":"Consumido","fr":"Consommé"],
         "matUsed": ["it":"consumato in stampa","en":"used in this print","es":"usado en impresión","fr":"utilisé à l'impression"],
         "ifBuy": ["it":"se le compri","en":"if you buy them","es":"si las compras","fr":"si vous les achetez"],
         // materiali

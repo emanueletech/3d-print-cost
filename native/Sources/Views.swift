@@ -574,6 +574,7 @@ struct ColorsView: View {
                     HStack {
                         Text(m.t("thSpool")).frame(maxWidth: .infinity, alignment: .leading)
                         Text(m.t("thGrams")).frame(width: 80, alignment: .trailing)
+                        Text(m.t("thUsed")).frame(width: 86, alignment: .trailing)
                         Text(m.t("thQty")).frame(width: 70, alignment: .trailing)
                         Text(m.t("thUnit")).frame(width: 80, alignment: .trailing)
                         Text(m.t("thTot")).frame(width: 90, alignment: .trailing)
@@ -589,6 +590,8 @@ struct ColorsView: View {
                                 Text("\(r.type) \(r.name)")
                             }.frame(maxWidth: .infinity, alignment: .leading)
                             Text("\(Int(r.grams))").frame(width: 80, alignment: .trailing)
+                            Text(eur(r.grams / 1000 * (m.material(forHex: r.hex, type: r.type)?.effectiveCostPerKg ?? m.fallbackCostPerKg)))
+                                .foregroundStyle(.secondary).frame(width: 86, alignment: .trailing)
                             Text("\(r.spools)").frame(width: 70, alignment: .trailing)
                             Text(eur(m.unitPrice.price)).frame(width: 80, alignment: .trailing)
                             Text(eur(Double(r.spools)*m.unitPrice.price)).frame(width: 90, alignment: .trailing).fontWeight(.semibold)
@@ -598,6 +601,7 @@ struct ColorsView: View {
                         HStack {
                             Text(m.t("total")).fontWeight(.bold).frame(maxWidth: .infinity, alignment: .leading)
                             Text("\(Int(m.totalGrams))").fontWeight(.bold).frame(width: 80, alignment: .trailing)
+                            Text(eur(m.cost.material)).fontWeight(.bold).frame(width: 86, alignment: .trailing)
                             Text("\(m.totalSpools)").fontWeight(.bold).frame(width: 70, alignment: .trailing)
                             Text("").frame(width: 80)
                             Text(eur(m.filamentCost)).fontWeight(.bold).foregroundStyle(.green).frame(width: 90, alignment: .trailing)

@@ -45,6 +45,7 @@
     thGrams: { it: 'Grammi', en: 'Grams', es: 'Gramos', fr: 'Grammes' },
     thEnergy: { it: 'Corrente', en: 'Energy', es: 'Energía', fr: 'Énergie' },
     thSpool: { it: 'Bobina', en: 'Spool', es: 'Bobina', fr: 'Bobine' },
+    thUsed: { it: 'Consumato', en: 'Used', es: 'Consumido', fr: 'Consommé' },
     thQty: { it: 'Bobine', en: 'Spools', es: 'Bobinas', fr: 'Bobines' },
     thUnit: { it: '€/bobina', en: '€/spool', es: '€/bobina', fr: '€/bobine' },
     thTot: { it: 'Totale', en: 'Total', es: 'Total', fr: 'Total' },

@@ -534,24 +534,29 @@
   function viewColors() {
     return `<div class="sub">${esc(t('sColors'))}</div>${sourcePicker()}
       ${card(`<table class="tbl">
-        <thead><tr><th>${esc(t('thSpool'))}</th><th class="n">${esc(t('thGrams'))}</th><th class="n">${esc(t('thQty'))}</th>
-        <th class="n">${esc(t('thUnit'))}</th><th class="n">${esc(t('thTot'))}</th></tr></thead>
+        <thead><tr><th>${esc(t('thSpool'))}</th><th class="n">${esc(t('thGrams'))}</th><th class="n">${esc(t('thUsed'))}</th>
+        <th class="n">${esc(t('thQty'))}</th><th class="n">${esc(t('thUnit'))}</th><th class="n">${esc(t('thTot'))}</th></tr></thead>
         <tbody id="colorsBody">${colorsBody()}</tbody></table>`, 'pad0')}`;
   }
 
   function colorsBody() {
     const rows = colorRows();
-    if (!rows.length) return `<tr><td colspan="5" class="empty">${esc(t('noColors'))}</td></tr>`;
+    if (!rows.length) return `<tr><td colspan="6" class="empty">${esc(t('noColors'))}</td></tr>`;
     const u = unitPrice();
+    const usedCost = (r) => {
+      const mat = materialFor(r.hex, r.type);
+      return (r.grams / 1000) * (mat ? effectiveCostPerKg(mat) : fallbackCostPerKg());
+    };
     return (
       rows
         .map(
           (r) => `<tr><td><span class="sw" style="background:${esc(r.hex)}"></span>${esc(r.type)} ${esc(r.name)}</td>
-        <td class="n">${Math.round(r.grams)}</td><td class="n">${r.spools}</td>
+        <td class="n">${Math.round(r.grams)}</td><td class="n dim">${esc(eur(usedCost(r)))}</td><td class="n">${r.spools}</td>
         <td class="n">${esc(eur(u.price))}</td><td class="n b">${esc(eur(r.spools * u.price))}</td></tr>`
         )
         .join('') +
       `<tr class="tot"><td><b>${esc(t('total'))}</b></td><td class="n b">${Math.round(totalGrams())}</td>
+        <td class="n b">${esc(eur(costBreakdown().material))}</td>
         <td class="n b">${totalSpools()}</td><td class="n dim">${esc(u.label)}</td><td class="n b green">${esc(eur(filamentCost()))}</td></tr>`
     );
   }
