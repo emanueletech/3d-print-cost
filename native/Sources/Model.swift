@@ -91,10 +91,18 @@ enum Slicer {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: launch)
         p.arguments = args
-        let out = Pipe(); p.standardOutput = out; p.standardError = Pipe()
+        let out = Pipe()
+        p.standardOutput = out
+        // stderr va scartato: un Pipe mai letto si riempie (~64 KB) e blocca per sempre
+        // Bambu Studio sui modelli complessi, dove --debug scrive moltissimo
+        p.standardError = FileHandle.nullDevice
         do { try p.run() } catch { return (-1, Data()) }
+        // guardia: oltre il timeout il processo viene terminato invece di attendere all'infinito
+        let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
         let data = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
+        killer.cancel()
         return (p.terminationStatus, data)
     }
 

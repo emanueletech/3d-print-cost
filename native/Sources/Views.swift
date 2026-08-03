@@ -477,6 +477,11 @@ struct FileCard: View {
                         stat("\(Int(g)) g", m.t("thGrams"))
                         stat(eur(secs/3600*m.watts/1000*m.kwh), m.t("thEnergy"))
                     } else {
+                        if case .error(let e) = f.state {
+                            Label(m.t(e == "noBambu" ? "noBambuShort" : "sliceFailed"), systemImage: "exclamationmark.triangle.fill")
+                                .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.orange)
+                                .lineLimit(2).frame(maxWidth: 300, alignment: .trailing)
+                        }
                         Button(m.t("slice")) { m.slice(f) }.buttonStyle(.borderedProminent).controlSize(.small)
                     }
                     Button { m.remove(f) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary)
