@@ -441,3 +441,25 @@ input, textarea { user-select: text; }
   .grid3 { grid-template-columns: repeat(2, 1fr); }
   .orient { grid-template-columns: 1fr; }
 }
+
+/* popover di dettaglio per colore (schede Materiale della panoramica) */
+.pop-overlay {
+  position: fixed; inset: 0; z-index: 70; display: grid; place-items: center;
+  background: rgba(8, 11, 20, 0.55);
+}
+.pop-card {
+  background: #151b2c; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 14px;
+  padding: 16px 18px; min-width: 260px; max-width: 360px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+}
+.pop-card .k {
+  font-size: 10.5px; letter-spacing: 0.8px; text-transform: uppercase;
+  color: rgba(238, 242, 251, 0.6); font-weight: 600; margin-bottom: 10px;
+}
+.pop-row { display: flex; align-items: center; gap: 9px; padding: 5px 0; font-size: 13px; }
+.pop-row i {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3); flex: none;
+}
+.pop-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-row b { font-variant-numeric: tabular-nums; }

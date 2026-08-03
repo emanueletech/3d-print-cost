@@ -352,12 +352,35 @@
     return `<div class="card ${cls}" ${attrs}>${inner}</div>`;
   }
 
-  function statCard({ icon, tint, k, v, d = '', goto = null }) {
-    return `<button class="card stat${goto ? ' link' : ''}" ${goto ? `data-goto="${goto}"` : 'disabled'}>
-      <div class="stat-top"><span class="pill" style="--tint:${tint}">${icon}</span>${goto ? '<span class="chev">›</span>' : ''}</div>
+  function statCard({ icon, tint, k, v, d = '', goto = null, pop = null }) {
+    const act = pop ? `data-pop="${pop}"` : goto ? `data-goto="${goto}"` : 'disabled';
+    return `<button class="card stat${pop || goto ? ' link' : ''}" ${act}>
+      <div class="stat-top"><span class="pill" style="--tint:${tint}">${icon}</span>${pop || goto ? '<span class="chev">›</span>' : ''}</div>
       <div class="k">${esc(k)}</div><div class="v">${esc(v)}</div>
       ${d ? `<div class="d" style="color:${tint}">${esc(d)}</div>` : ''}
     </button>`;
+  }
+
+  /** Dettaglio per colore delle schede Materiale: grammi esatti o spesa esatta. */
+  function showStatPop(kind) {
+    const items = colorRows()
+      .map((r) => {
+        let val;
+        if (kind === 'grams') val = r.grams < 1000 ? `${Math.round(r.grams)} g` : `${(r.grams / 1000).toFixed(3)} kg`;
+        else {
+          const m = materialFor(r.hex, r.type);
+          val = eur((r.grams / 1000) * (m ? effectiveCostPerKg(m) : fallbackCostPerKg()));
+        }
+        return `<div class="pop-row"><i style="background:${r.hex}"></i><span>${esc(r.name)}</span><b>${esc(val)}</b></div>`;
+      })
+      .join('');
+    const ov = document.createElement('div');
+    ov.className = 'pop-overlay';
+    ov.innerHTML = `<div class="pop-card"><div class="k">${esc(kind === 'grams' ? t('kMat') : t('matReal'))}</div>${items}</div>`;
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) ov.remove();
+    });
+    document.body.appendChild(ov);
   }
 
   function viewOverview() {
@@ -373,9 +396,9 @@
       statCard({ icon: '⏱', tint: '#4aa3ff', k: t('kTime'), v: dash || `${Math.floor(totalSeconds() / 3600)} h`,
         d: loaded.length ? `≈ ${Math.ceil(totalSeconds() / 86400)} ${t('days')}` : '', goto: loaded.length ? 'plates' : null }),
       statCard({ icon: '🧱', tint: '#b48cff', k: t('kMat'), v: dash || `${(totalGrams() / 1000).toFixed(1)} kg`,
-        d: rows.length ? `${rows.length} ${t('colors')}` : '', goto: loaded.length ? 'colors' : null }),
+        d: rows.length ? `${rows.length} ${t('colors')}` : '', pop: loaded.length ? 'grams' : null }),
       statCard({ icon: '💶', tint: '#43d17a', k: t('matReal'), v: dash || eur(c.material),
-        d: loaded.length ? t('matUsed') : '', goto: loaded.length ? 'materials' : null }),
+        d: loaded.length ? t('matUsed') : '', pop: loaded.length ? 'cost' : null }),
       statCard({ icon: '🧻', tint: '#2fd4c8', k: t('kSpools'), v: dash || String(totalSpools()),
         d: loaded.length ? `${eur(filamentCost())} · ${t('ifBuy')}` : '', goto: loaded.length ? 'colors' : null }),
       statCard({ icon: '⚡️', tint: '#ff9a4a', k: t('kEnergy'), v: dash || eur(energyCost()),
@@ -895,6 +918,9 @@
 
       const lang = hit('data-lang');
       if (lang) return setLang(lang.getAttribute('data-lang'));
+
+      const pop = hit('data-pop');
+      if (pop) return showStatPop(pop.getAttribute('data-pop'));
 
       const goto = hit('data-goto');
       if (goto) return setSection(goto.getAttribute('data-goto'));

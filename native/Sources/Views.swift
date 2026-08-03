@@ -252,10 +252,19 @@ struct GlassCard<Content: View>: View {
     }
 }
 
+struct StatRow: Identifiable { let id = UUID(); let hex: String; let name: String; let value: String }
+
+/// Grammi esatti: sotto il chilo in g, sopra in kg con precisione al grammo.
+func gramsLabel(_ g: Double) -> String {
+    g < 1000 ? String(format: "%.0f g", g) : String(format: "%.3f kg", g / 1000)
+}
+
 struct StatCard: View {
     @EnvironmentObject var m: AppModel
     let icon: String; let tint: Color; let k: String; let v: String; var d: String = ""
     var goto: AppModel.Section? = nil
+    var rows: [StatRow] = []          // dettaglio per colore, mostrato in un popover
+    @State private var showDetail = false
     var body: some View {
         let card = GlassCard {
             VStack(alignment: .leading, spacing: 8) {
@@ -264,14 +273,37 @@ struct StatCard: View {
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(tint.opacity(0.16)))
                     Spacer()
-                    if goto != nil { Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary) }
+                    if goto != nil || !rows.isEmpty { Image(systemName: "chevron.right").font(.system(size: 11, weight: .semibold)).foregroundStyle(.tertiary) }
                 }
                 Text(k.uppercased()).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.secondary).tracking(0.8)
                 Text(v).font(.system(size: 28, weight: .bold, design: .rounded))
                 if !d.isEmpty { Text(d).font(.system(size: 11.5, weight: .semibold)).foregroundStyle(tint) }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
-        if let g = goto {
+        if !rows.isEmpty {
+            Button { showDetail = true } label: { card }.buttonStyle(.plain).pointerStyle(.link)
+                .popover(isPresented: $showDetail, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 9) {
+                        Text(k.uppercased()).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.8)
+                        ForEach(rows) { r in
+                            HStack(spacing: 9) {
+                                Circle().fill(Color(hex: r.hex)).frame(width: 11, height: 11)
+                                    .overlay(Circle().strokeBorder(.white.opacity(0.3), lineWidth: 1))
+                                Text(r.name).font(.system(size: 12.5)).lineLimit(1)
+                                Spacer(minLength: 26)
+                                Text(r.value).font(.system(size: 12.5, weight: .semibold)).monospacedDigit()
+                            }
+                        }
+                        if let g = goto {
+                            Divider()
+                            Button { showDetail = false; m.section = g } label: {
+                                HStack(spacing: 4) { Text(m.t("openSection")); Image(systemName: "chevron.right") }
+                                    .font(.system(size: 11.5, weight: .semibold))
+                            }.buttonStyle(.plain).foregroundStyle(.secondary).pointerStyle(.link)
+                        }
+                    }.padding(15).frame(minWidth: 250)
+                }
+        } else if let g = goto {
             Button { m.section = g } label: { card }.buttonStyle(.plain).pointerStyle(.link)
         } else { card }
     }
@@ -296,10 +328,15 @@ struct OverviewView: View {
                 StatCard(icon: "cube.fill", tint: .purple, k: m.t("kMat"),
                     v: m.loaded.isEmpty ? "—" : String(format:"%.1f kg", m.totalGrams/1000),
                     d: m.colorRows.isEmpty ? "" : "\(m.colorRows.count) \(m.t("colors"))",
-                    goto: m.loaded.isEmpty ? nil : .colors)
+                    goto: m.loaded.isEmpty ? nil : .colors,
+                    rows: m.colorRows.map { StatRow(hex: $0.hex, name: $0.name, value: gramsLabel($0.grams)) })
                 StatCard(icon: "eurosign.circle.fill", tint: .green, k: m.t("matReal"),
                     v: m.loaded.isEmpty ? "—" : eur(m.cost.material), d: m.loaded.isEmpty ? "" : m.t("matUsed"),
-                    goto: m.loaded.isEmpty ? nil : .materials)
+                    goto: m.loaded.isEmpty ? nil : .materials,
+                    rows: m.colorRows.map { r in
+                        let perKg = m.material(forHex: r.hex, type: r.type)?.effectiveCostPerKg ?? m.fallbackCostPerKg
+                        return StatRow(hex: r.hex, name: r.name, value: eur(r.grams / 1000 * perKg))
+                    })
                 StatCard(icon: "cylinder.fill", tint: .teal, k: m.t("kSpools"),
                     v: m.loaded.isEmpty ? "—" : "\(m.totalSpools)", d: m.loaded.isEmpty ? "" : "\(eur(m.filamentCost)) · \(m.t("ifBuy"))",
                     goto: m.loaded.isEmpty ? nil : .colors)
