@@ -421,8 +421,12 @@ final class AppModel: ObservableObject {
     func slice(_ f: LoadedFile) {
         busy = String(format: t("busy"), f.name)
         let path = f.path
+        // un solo piatto selezionato tra tanti → si slica solo quello
+        let total = f.thumbs.count
+        let included = (1...max(total, 1)).filter { !f.excluded.contains($0) }
+        let plate = (total > 1 && included.count == 1) ? included[0] : 0
         Task.detached {
-            let st = Slicer.slice(path)
+            let st = Slicer.slice(path, plate: plate)
             await MainActor.run { f.state = st; self.objectWillChange.send(); self.busy = nil }
         }
     }

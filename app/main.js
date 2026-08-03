@@ -242,7 +242,7 @@ function registerIPC() {
 
   ipcMain.handle('threemf:analyze', (_e, file) => threemf.analyze(file));
   ipcMain.handle('threemf:thumbnails', (_e, file) => threemf.thumbnails(file));
-  ipcMain.handle('slicer:slice', (_e, file) => slicer.slice(file, slicerOpts()));
+  ipcMain.handle('slicer:slice', (_e, file, plate) => slicer.slice(file, { ...slicerOpts(), plate: plate || 0 }));
   ipcMain.handle('slicer:status', () => ({ bambu: slicer.findBambu(state.bambuPath) || '' }));
 
   /** mesh dal disco: lo STEP passa da Bambu Studio, STL/OBJ si leggono diretti */

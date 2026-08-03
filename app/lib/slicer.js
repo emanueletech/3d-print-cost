@@ -123,8 +123,9 @@ function settingsArg(profilesDir) {
   return `${path.join(profilesDir, 'machine_H2C_04.json')};${path.join(profilesDir, 'process_020_H2C.json')}`;
 }
 
-/** Slicing di un progetto .3mf non slicato (con fallback di rimappaggio sulla griglia H2C). */
-async function slice(file, { profilesDir, bambuPath } = {}) {
+/** Slicing di un progetto .3mf non slicato (con fallback di rimappaggio sulla griglia H2C).
+ *  `plate` > 0 slica solo quel piatto (numerazione del progetto); 0 = tutti. */
+async function slice(file, { profilesDir, bambuPath, plate = 0 } = {}) {
   const bambu = findBambu(bambuPath);
   if (!bambu) return { error: 'noBambu' };
 
@@ -139,7 +140,7 @@ async function slice(file, { profilesDir, bambuPath } = {}) {
         '--load-settings', settingsArg(profilesDir),
         '--load-filaments', fil,
         ...(arrange ? ['--arrange', '1'] : []),
-        '--slice', '0', '--debug', '1',
+        '--slice', String(plate || 0), '--debug', '1',
         '--export-3mf', 'sliced.3mf', '--outputdir', tmp, src,
       ]);
       return ok && fs.existsSync(outFile);
@@ -155,7 +156,11 @@ async function slice(file, { profilesDir, bambuPath } = {}) {
     // sul piatto H2C (come fa la GUI quando si cambia stampante)
     if (!ok) ok = await attempt(file, true);
     if (!ok) return { error: 'sliceFail' };
-    return threemf.analyze(outFile);
+    const a = threemf.analyze(outFile);
+    // slicing di un piatto solo: l'indice torna quello del progetto,
+    // così le spunte sulle anteprime restano allineate
+    if (plate > 0 && a && a.plates && a.plates.length === 1) a.plates[0].index = plate;
+    return a;
   } finally {
     cleanup(tmp);
   }

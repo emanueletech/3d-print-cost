@@ -183,7 +183,8 @@ enum Slicer {
     }
 
     /// Slicing con Bambu Studio CLI (profilo H2C), con fallback di riposizionamento sulla griglia.
-    static func slice(_ file: String) -> LoadState {
+    /// `plate` > 0 slica solo quel piatto (numerazione del progetto); 0 = tutti.
+    static func slice(_ file: String, plate: Int = 0) -> LoadState {
         guard FileManager.default.fileExists(atPath: bambu) else { return .error("noBambu") }
         let res = resourcesDir()
         let prof = res + "/profiles"
@@ -195,7 +196,7 @@ enum Slicer {
         let log = FileHandle(forWritingAtPath: logPath)
         defer { log?.closeFile() }
         func note(_ s: String) { log?.write((s + "\n").data(using: .utf8)!) }
-        note("=== \(file)")
+        note(plate > 0 ? "=== \(file) (solo piatto \(plate))" : "=== \(file)")
 
         let proj = parseProject(file)
         let fil = (proj.slotTypes.isEmpty ? ["PLA Basic"] : proj.slotTypes)
@@ -207,7 +208,7 @@ enum Slicer {
                 "--load-settings", "\(prof)/machine_H2C_04.json;\(prof)/process_020_H2C.json",
                 "--load-filaments", fil]
                 + (arrange ? ["--arrange", "1"] : [])
-                + ["--slice", "0", "--debug", "1",
+                + ["--slice", "\(plate)", "--debug", "1",
                    "--export-3mf", "sliced.3mf", "--outputdir", tmp, src]
             note("$ BambuStudio " + args.joined(separator: " "))
             let (code, out) = run(bambu, args, errTo: log)
@@ -228,7 +229,15 @@ enum Slicer {
         // sul piatto H2C (come fa la GUI quando si cambia stampante)
         if !ok { ok = runSlice(file, arrange: true) }
         guard ok else { return .error("sliceFail") }
-        return analyze(tmp + "/sliced.3mf")
+        let st = analyze(tmp + "/sliced.3mf")
+        // slicing di un piatto solo: l'indice torna quello del progetto,
+        // così le spunte sulle anteprime restano allineate
+        if plate > 0, case .sliced(var a) = st, a.plates.count == 1 {
+            let p = a.plates[0]
+            a.plates = [PlateInfo(index: plate, seconds: p.seconds, grams: p.grams, colorGrams: p.colorGrams)]
+            return .sliced(a)
+        }
+        return st
     }
 
     /// Slicing di un file mesh singolo (STL/OBJ/STEP) col profilo H2C, mono-materiale PLA Basic.
