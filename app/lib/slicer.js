@@ -134,10 +134,11 @@ async function slice(file, { profilesDir, bambuPath } = {}) {
     const fil = filamentProfiles(proj.slotTypes, profilesDir);
     const outFile = path.join(tmp, 'sliced.3mf');
 
-    const attempt = async (src) => {
+    const attempt = async (src, arrange) => {
       const ok = await run(bambu, [
         '--load-settings', settingsArg(profilesDir),
         '--load-filaments', fil,
+        ...(arrange ? ['--arrange', '1'] : []),
         '--slice', '0', '--debug', '1',
         '--export-3mf', 'sliced.3mf', '--outputdir', tmp, src,
       ]);
@@ -150,6 +151,9 @@ async function slice(file, { profilesDir, bambuPath } = {}) {
       const remapped = path.join(tmp, 'remapped.3mf');
       if (remap(file, remapped, profilesDir)) ok = await attempt(remapped);
     }
+    // ultima spiaggia: lascia che sia Bambu Studio a riadattare la disposizione
+    // sul piatto H2C (come fa la GUI quando si cambia stampante)
+    if (!ok) ok = await attempt(file, true);
     if (!ok) return { error: 'sliceFail' };
     return threemf.analyze(outFile);
   } finally {

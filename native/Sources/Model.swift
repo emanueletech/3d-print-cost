@@ -202,12 +202,13 @@ enum Slicer {
             .map { prof + "/" + ($0.contains("Matte") ? "fil_PLA_Matte_H2C.json" : "fil_PLA_Basic_H2C.json") }
             .joined(separator: ";")
 
-        func runSlice(_ src: String) -> Bool {
+        func runSlice(_ src: String, arrange: Bool = false) -> Bool {
             let args = [
                 "--load-settings", "\(prof)/machine_H2C_04.json;\(prof)/process_020_H2C.json",
-                "--load-filaments", fil,
-                "--slice", "0", "--debug", "1",
-                "--export-3mf", "sliced.3mf", "--outputdir", tmp, src]
+                "--load-filaments", fil]
+                + (arrange ? ["--arrange", "1"] : [])
+                + ["--slice", "0", "--debug", "1",
+                   "--export-3mf", "sliced.3mf", "--outputdir", tmp, src]
             note("$ BambuStudio " + args.joined(separator: " "))
             let (code, out) = run(bambu, args, errTo: log)
             if let s = String(data: out, encoding: .utf8), !s.isEmpty { note("[stdout] " + String(s.suffix(20000))) }
@@ -223,6 +224,9 @@ enum Slicer {
             note("[exit] \(c)")
             if c == 0 { ok = runSlice(remapped) }
         }
+        // ultima spiaggia: lascia che sia Bambu Studio a riadattare la disposizione
+        // sul piatto H2C (come fa la GUI quando si cambia stampante)
+        if !ok { ok = runSlice(file, arrange: true) }
         guard ok else { return .error("sliceFail") }
         return analyze(tmp + "/sliced.3mf")
     }
