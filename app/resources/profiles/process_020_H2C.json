@@ -97,6 +97,7 @@
  "avoid_crossing_wall_includes_support": "0",
  "minimum_sparse_infill_area": "15",
  "only_one_wall_top": "1",
+ "ooze_prevention": "0",
  "outer_wall_line_width": "0.42",
  "outer_wall_speed": [
   "200",
