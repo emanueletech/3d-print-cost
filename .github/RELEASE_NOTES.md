@@ -1,20 +1,20 @@
 ## 🇮🇹 Novità
 
-**Slicing dei modelli complessi riparato (macOS).** Su alcuni progetti Bambu Studio scriveva così tanto log da riempire un canale mai letto: il processo restava bloccato per sempre e l'app sembrava non fare nulla. Ora il canale viene gestito correttamente e un timeout di sicurezza termina gli slicing che durano troppo.
+**Avviso di aggiornamento.** All'avvio l'app confronta la propria versione con l'ultima release su GitHub: se ce n'è una più nuova compare una barra con il pulsante Scarica. Senza connessione non compare nulla e l'app resta completamente utilizzabile offline.
 
-**Errori di slicing visibili.** Quando lo slicing fallisce o Bambu Studio non viene trovato, la scheda del file mostra il motivo invece di restare muta. Il dettaglio tecnico finisce in `~/Library/Logs/3DPrintCost-slicer.log` (macOS).
+**Dettaglio esatto per colore.** In Panoramica, cliccando su **Materiale** si apre il riquadro con i grammi esatti di ogni colore; cliccando su **Materiale (reale)** la spesa esatta per colore. In **Colori & Bobine** c'è la nuova colonna **Consumato**: il costo del materiale davvero usato, colore per colore, accanto all'economia delle bobine da comprare.
 
-**Progetti nati per altre stampanti.** Lo slicing ora riprova in tre passi: file originale, riposizionamento sul piatto H2C (ora anche della prime tower, fuori dalle bande riservate ai due ugelli) e infine riadattamento automatico della disposizione (`--arrange`), come fa Bambu Studio quando si cambia stampante. Risolti anche i progetti con «ooze prevention» attiva, che la validazione rifiutava.
+**Colori usati in cima ai Materiali.** La sezione Materiali ora mostra per primi i colori dei file caricati, con grammi e prezzo €/kg del materiale abbinato — in arancione quando manca l'abbinamento e vale il prezzo predefinito.
 
-**Slicing di un solo piatto.** Se tra le anteprime lasci selezionato un piatto solo, viene slicato solo quello: sui progetti multi-piatto complessi la prova dura minuti invece di decine.
+**Piatti reali negli export parziali.** Esportando dal proprio slicer un solo piatto slicato, l'app ora mantiene il numero vero del piatto e mostra spente le anteprime dei piatti senza dati, invece di farli sembrare tutti selezionati.
 
-**Testo più chiaro.** Il pannello File & Slicing ora spiega che lo slicing integrato usa sempre Bambu Studio con profilo H2C e che la stampante selezionata incide solo sui costi.
+**Niente più silenzi sui file sbagliati.** Trascinando un file non leggibile (per esempio il G-code puro) l'app spiega che serve il «file del piatto slicato» (`.gcode.3mf`). Su macOS gli STL/OBJ/STEP trascinati nella finestra aprono direttamente Orienta 3D.
 
 ### Pacchetti
 
 | Sistema | File |
 |---|---|
-| **Windows** | `3D-Print-Cost-Setup-1.1.3.exe` (installer) — oppure `3D-Print-Cost-Portable-1.1.3.exe` (nessuna installazione) |
+| **Windows** | `3D-Print-Cost-Setup-1.1.4.exe` (installer) — oppure `3D-Print-Cost-Portable-1.1.4.exe` (nessuna installazione) |
 | **macOS** | `3D-Print-Cost.dmg` — richiede macOS 26 su Apple Silicon |
 | **Browser** | `index.html` nel repository, versione ridotta senza slicing |
 
@@ -22,27 +22,27 @@ Né l'installer Windows né l'app macOS hanno una firma digitale a pagamento: al
 
 ### Aggiornamento dalle versioni precedenti
 
-Chi usa la **1.0 deve aggiornare**: verifica lo sblocco col vecchio schema e non è più compatibile con il bot. Dalla 1.1.x l'aggiornamento è consigliato, soprattutto se usi lo slicing dall'app.
+Chi usa la **1.0 deve aggiornare**: verifica lo sblocco col vecchio schema e non è più compatibile con il bot. Dalla 1.1.x l'aggiornamento è consigliato — e da questa versione in poi sarà l'app stessa ad avvisarti delle prossime.
 
 ---
 
 ## 🇺🇸 What's new
 
-**Complex-model slicing fixed (macOS).** On some projects Bambu Studio wrote so much log output that it filled a never-read channel: the process hung forever and the app looked like it was doing nothing. The channel is now handled properly and a safety timeout terminates runs that take too long.
+**Update notice.** On startup the app compares its version with the latest GitHub release: if a newer one exists, a bar with a Download button appears. With no connection nothing shows up and the app keeps working fully offline.
 
-**Visible slicing errors.** When slicing fails or Bambu Studio can't be found, the file card now shows the reason instead of staying silent. Technical details go to `~/Library/Logs/3DPrintCost-slicer.log` (macOS).
+**Exact per-color detail.** In the Overview, clicking **Material** opens a panel with the exact grams of every color; clicking **Material (real)** shows the exact spend per color. **Colors & Spools** gains a new **Used** column: the cost of the material actually consumed, color by color, next to the spools-to-buy economics.
 
-**Projects made for other printers.** Slicing now retries in three steps: the original file, repositioning onto the H2C plate (now including the prime tower, kept clear of both nozzles' reserved bands) and finally automatic re-arranging (`--arrange`), just like Bambu Studio does when you switch printers. Projects with "ooze prevention" enabled, which validation used to reject, are fixed too.
+**Used colors on top of Materials.** The Materials section now leads with the colors of the loaded files, showing grams and the matched material's price per kg — in orange when there is no match and the default price applies.
 
-**Single-plate slicing.** If only one plate is left selected among the previews, only that plate gets sliced: on complex multi-plate projects a test takes minutes instead of dozens.
+**Real plates in partial exports.** When you export a single sliced plate from your slicer, the app now keeps the plate's true number and dims the previews of plates without data, instead of showing them all as selected.
 
-**Clearer wording.** The Files & Slicing panel now explains that in-app slicing always uses Bambu Studio with the H2C profile and that the selected printer only affects costs.
+**No more silence on wrong files.** Dropping an unreadable file (for instance plain G-code) now explains that the "plate sliced file" (`.gcode.3mf`) is needed. On macOS, STL/OBJ/STEP files dropped on the window open 3D Orient directly.
 
 ### Packages
 
 | System | File |
 |---|---|
-| **Windows** | `3D-Print-Cost-Setup-1.1.3.exe` (installer) — or `3D-Print-Cost-Portable-1.1.3.exe` (no installation) |
+| **Windows** | `3D-Print-Cost-Setup-1.1.4.exe` (installer) — or `3D-Print-Cost-Portable-1.1.4.exe` (no installation) |
 | **macOS** | `3D-Print-Cost.dmg` — requires macOS 26 on Apple Silicon |
 | **Browser** | `index.html` in the repository, lite version without slicing |
 
@@ -50,4 +50,4 @@ Neither the Windows installer nor the macOS app carries a paid code-signing cert
 
 ### Upgrading from previous versions
 
-Anyone still on **1.0 must update**: it verifies the unlock with the old scheme and no longer works with the bot. Upgrading from 1.1.x is recommended, especially if you slice from the app.
+Anyone still on **1.0 must update**: it verifies the unlock with the old scheme and no longer works with the bot. Upgrading from 1.1.x is recommended — and from this version on, the app itself will tell you about the next ones.
