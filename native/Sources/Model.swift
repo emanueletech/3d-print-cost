@@ -86,19 +86,28 @@ enum Slicer {
         return candidates.first!.path
     }
 
+    /// Log dell'ultimo slicing, per capire perché Bambu Studio fallisce.
+    static let logPath = NSHomeDirectory() + "/Library/Logs/3DPrintCost-slicer.log"
+
     @discardableResult
-    static func run(_ launch: String, _ args: [String], timeout: TimeInterval = 1800) -> (Int32, Data) {
+    static func run(_ launch: String, _ args: [String], timeout: TimeInterval = 1800, errTo: FileHandle? = nil) -> (Int32, Data) {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: launch)
         p.arguments = args
         let out = Pipe()
         p.standardOutput = out
-        // stderr va scartato: un Pipe mai letto si riempie (~64 KB) e blocca per sempre
-        // Bambu Studio sui modelli complessi, dove --debug scrive moltissimo
-        p.standardError = FileHandle.nullDevice
+        // stderr mai su un Pipe non letto: si riempie (~64 KB) e blocca per sempre
+        // Bambu Studio sui modelli complessi, dove --debug scrive moltissimo.
+        // Su file invece il kernel scrive diretto: niente blocco, e l'errore resta leggibile.
+        p.standardError = errTo ?? FileHandle.nullDevice
         do { try p.run() } catch { return (-1, Data()) }
         // guardia: oltre il timeout il processo viene terminato invece di attendere all'infinito
-        let killer = DispatchWorkItem { if p.isRunning { p.terminate() } }
+        let killer = DispatchWorkItem {
+            if p.isRunning {
+                errTo?.write("\n[timeout \(Int(timeout)) s: processo terminato]\n".data(using: .utf8)!)
+                p.terminate()
+            }
+        }
         DispatchQueue.global().asyncAfter(deadline: .now() + timeout, execute: killer)
         let data = out.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
@@ -182,24 +191,36 @@ enum Slicer {
         try? FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: tmp) }
 
+        FileManager.default.createFile(atPath: logPath, contents: nil)
+        let log = FileHandle(forWritingAtPath: logPath)
+        defer { log?.closeFile() }
+        func note(_ s: String) { log?.write((s + "\n").data(using: .utf8)!) }
+        note("=== \(file)")
+
         let proj = parseProject(file)
         let fil = (proj.slotTypes.isEmpty ? ["PLA Basic"] : proj.slotTypes)
             .map { prof + "/" + ($0.contains("Matte") ? "fil_PLA_Matte_H2C.json" : "fil_PLA_Basic_H2C.json") }
             .joined(separator: ";")
 
         func runSlice(_ src: String) -> Bool {
-            let (code, _) = run(bambu, [
+            let args = [
                 "--load-settings", "\(prof)/machine_H2C_04.json;\(prof)/process_020_H2C.json",
                 "--load-filaments", fil,
                 "--slice", "0", "--debug", "1",
-                "--export-3mf", "sliced.3mf", "--outputdir", tmp, src])
+                "--export-3mf", "sliced.3mf", "--outputdir", tmp, src]
+            note("$ BambuStudio " + args.joined(separator: " "))
+            let (code, out) = run(bambu, args, errTo: log)
+            if let s = String(data: out, encoding: .utf8), !s.isEmpty { note("[stdout] " + String(s.suffix(20000))) }
+            note("[exit] \(code)")
             return code == 0 && FileManager.default.fileExists(atPath: tmp + "/sliced.3mf")
         }
 
         var ok = runSlice(file)
         if !ok {
             let remapped = tmp + "/remapped.3mf"
-            let (c, _) = run("/usr/bin/python3", [res + "/remap.py", file, remapped])
+            note("$ python3 remap.py (fallback riposizionamento griglia)")
+            let (c, _) = run("/usr/bin/python3", [res + "/remap.py", file, remapped], errTo: log)
+            note("[exit] \(c)")
             if c == 0 { ok = runSlice(remapped) }
         }
         guard ok else { return .error("sliceFail") }
@@ -213,11 +234,16 @@ enum Slicer {
         let tmp = NSTemporaryDirectory() + "sliceraw-" + UUID().uuidString
         try? FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: tmp) }
+        FileManager.default.createFile(atPath: logPath, contents: nil)
+        let log = FileHandle(forWritingAtPath: logPath)
+        defer { log?.closeFile() }
+        log?.write("=== \(file)\n".data(using: .utf8)!)
         let (code, _) = run(bambu, [
             "--load-settings", "\(prof)/machine_H2C_04.json;\(prof)/process_020_H2C.json",
             "--load-filaments", "\(prof)/fil_PLA_Basic_H2C.json",
             "--arrange", "1", "--slice", "0", "--debug", "1",
-            "--export-3mf", "sliced.3mf", "--outputdir", tmp, file])
+            "--export-3mf", "sliced.3mf", "--outputdir", tmp, file], errTo: log)
+        log?.write("[exit] \(code)\n".data(using: .utf8)!)
         guard code == 0, FileManager.default.fileExists(atPath: tmp + "/sliced.3mf") else { return .error("sliceFail") }
         return analyze(tmp + "/sliced.3mf")
     }
