@@ -13,7 +13,13 @@ Da impostare all'inizio di ogni sessione di lavoro:
 ```bash
 git config user.name "emanueletech"
 git config user.email "281643038+emanueletech@users.noreply.github.com"
+git config commit.gpgsign false
 ```
+
+L'ultima riga è necessaria negli ambienti remoti che firmano i commit con una
+chiave propria: quella chiave non è registrabile sull'account del proprietario
+e su GitHub produrrebbe il distintivo "Unverified". Meglio commit non firmati
+(nessun distintivo) che firme non verificabili.
 
 ## Attribuzione
 
