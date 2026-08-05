@@ -345,7 +345,9 @@
       for (let i = 1; i <= file.thumbs.length; i++) if (!file.excluded.has(i)) sel.push(i);
     }
     setBusy(fmt(t('busy'), file.name));
+    M.busyName = file.name;
     const res = await api.slice(file.path, sel);
+    M.busyName = null;
     setBusy(null);
     if (res.error === 'noBambu') return toast(t('bambuMissing'));
     if (res.error) return toast(fmt(t('errSliceFail'), file.name));
@@ -1267,6 +1269,12 @@
 
     /* eventi dal processo principale */
     api.onOpenFiles((files) => addPaths(files));
+    // avanzamento piatto per piatto nella barra di lavoro
+    api.onSliceProgress(({ done, total }) => {
+      if (!M.busyName) return;
+      const pct = Math.round(((done - 1) / total) * 100);
+      setBusy(`${fmt(t('busy'), M.busyName)}  ·  ${done}/${total} · ${pct}%`);
+    });
     api.onUpdate((tag) => {
       const bar = document.createElement('div');
       bar.className = 'update-bar';

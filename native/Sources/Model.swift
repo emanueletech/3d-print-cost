@@ -191,7 +191,8 @@ enum Slicer {
     /// sulla griglia e salvataggio piatto-per-piatto: un piatto guasto non fa più
     /// fallire l'intero file, viene solo segnalato in `FileAnalysis.failed`.
     /// `sel`: piatti richiesti (numerazione del progetto); vuoto = tutti.
-    static func slice(_ file: String, plates sel: [Int] = []) -> LoadState {
+    /// `progress`: chiamata prima di ogni piatto nei giri piatto-per-piatto (k, totale).
+    static func slice(_ file: String, plates sel: [Int] = [], progress: ((Int, Int) -> Void)? = nil) -> LoadState {
         guard FileManager.default.fileExists(atPath: bambu) else { return .error("noBambu") }
         let res = resourcesDir()
         let prof = res + "/profiles"
@@ -255,7 +256,8 @@ enum Slicer {
         // un piatto alla volta: prova l'originale, poi il rimappato
         func salvage(_ targets: [Int]) -> LoadState {
             var good: [PlateInfo] = []; var failed: [Int] = []
-            for n in targets {
+            for (k, n) in targets.enumerated() {
+                if targets.count > 1 { progress?(k + 1, targets.count) }
                 var done = runSlice(file, plate: n)
                 if !done, let r = remapped() { done = runSlice(r, plate: n) }
                 if done, let p = single(n) { good.append(p) } else { failed.append(n) }

@@ -137,8 +137,9 @@ function plateCount(file) {
 /** Slicing di un progetto .3mf non slicato, con fallback di rimappaggio sulla
  *  griglia H2C e salvataggio piatto-per-piatto: un piatto guasto non fa più
  *  fallire l'intero file, finisce nell'elenco `failed` del risultato.
- *  `plates`: piatti richiesti (numerazione del progetto); vuoto = tutti. */
-async function slice(file, { profilesDir, bambuPath, plates = [] } = {}) {
+ *  `plates`: piatti richiesti (numerazione del progetto); vuoto = tutti.
+ *  `onProgress(k, totale)`: chiamata prima di ogni piatto nei giri piatto-per-piatto. */
+async function slice(file, { profilesDir, bambuPath, plates = [], onProgress } = {}) {
   const bambu = findBambu(bambuPath);
   if (!bambu) return { error: 'noBambu' };
 
@@ -192,7 +193,8 @@ async function slice(file, { profilesDir, bambuPath, plates = [] } = {}) {
     const salvage = async (targets) => {
       const good = [];
       const failed = [];
-      for (const n of targets) {
+      for (const [k, n] of targets.entries()) {
+        if (onProgress && targets.length > 1) onProgress(k + 1, targets.length);
         let done = await attempt(file, { plate: n });
         if (!done && remapped()) done = await attempt(remapped(), { plate: n });
         const p = done ? single(n) : null;

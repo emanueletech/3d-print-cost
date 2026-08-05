@@ -283,7 +283,11 @@ function registerIPC() {
   ipcMain.handle('threemf:analyze', (_e, file) => threemf.analyze(file));
   ipcMain.handle('threemf:thumbnails', (_e, file) => threemf.thumbnails(file));
   ipcMain.handle('slicer:slice', (_e, file, plates) =>
-    slicer.slice(file, { ...slicerOpts(), plates: Array.isArray(plates) ? plates : [] }));
+    slicer.slice(file, {
+      ...slicerOpts(),
+      plates: Array.isArray(plates) ? plates : [],
+      onProgress: (done, total) => { if (win) win.webContents.send('slice-progress', { done, total }); },
+    }));
   ipcMain.handle('slicer:status', () => ({ bambu: slicer.findBambu(state.bambuPath) || '' }));
 
   /** mesh dal disco: lo STEP passa da Bambu Studio, STL/OBJ si leggono diretti */

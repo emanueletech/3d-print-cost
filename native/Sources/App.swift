@@ -521,8 +521,15 @@ final class AppModel: ObservableObject {
             sel = total > 0 ? (1...total).filter { !f.excluded.contains($0) } : []
         }
         busy = String(format: t("busy"), f.name)
+        let name = f.name
         Task.detached {
-            let st = Slicer.slice(path, plates: sel)
+            let st = Slicer.slice(path, plates: sel) { k, total in
+                // avanzamento piatto per piatto nella barra di lavoro
+                let pct = Int(Double(k - 1) / Double(total) * 100)
+                Task { @MainActor in
+                    self.busy = String(format: self.t("busy"), name) + "  ·  \(k)/\(total) · \(pct)%"
+                }
+            }
             await MainActor.run {
                 self.busy = nil
                 if incremental {

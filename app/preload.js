@@ -41,5 +41,6 @@ contextBridge.exposeInMainWorld('api', {
   onUnlocked: (cb) => ipcRenderer.on('unlocked', () => cb()),
   onOpenFiles: (cb) => ipcRenderer.on('open-files', (_e, files) => cb(files)),
   onUpdate: (cb) => ipcRenderer.on('update-available', (_e, tag) => cb(tag)),
+  onSliceProgress: (cb) => ipcRenderer.on('slice-progress', (_e, p) => cb(p)),
   onMenu: (cb) => ipcRenderer.on('menu', (_e, action) => cb(action)),
 });
