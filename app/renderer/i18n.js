@@ -47,6 +47,12 @@
     thSpool: { it: 'Bobina', en: 'Spool', es: 'Bobina', fr: 'Bobine' },
     thUsed: { it: 'Consumato', en: 'Used', es: 'Consumido', fr: 'Consommé' },
     usedColors: { it: 'Colori usati nel progetto', en: 'Colors used in this project', es: 'Colores usados en el proyecto', fr: 'Couleurs utilisées dans le projet' },
+    plateMoreHint: {
+      it: 'I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.',
+      en: "Dimmed plates aren't sliced yet: tap to select them, then hit Slice.",
+      es: 'Las placas apagadas aún no están laminadas: tócalas para seleccionarlas y pulsa Laminar.',
+      fr: "Les plateaux éteints ne sont pas encore découpés : touchez-les pour les sélectionner, puis lancez Découper.",
+    },
     platesFailed: {
       it: 'Piatti non slicabili: %@ — aprili in Bambu Studio',
       en: "Plates that couldn't be sliced: %@ — open them in Bambu Studio",

@@ -39,6 +39,10 @@ enum Loc {
                    "en":"Already-sliced 3mf (from any slicer) are read instantly. In-app slicing always uses Bambu Studio with the H2C profile: the printer picked above only affects costs.",
                    "es":"Los 3mf ya laminados (de cualquier laminador) se leen al instante. El laminado desde la app usa siempre Bambu Studio con el perfil H2C: la impresora elegida solo afecta a los costes.",
                    "fr":"Les 3mf déjà découpés (de n'importe quel slicer) sont lus instantanément. La découpe depuis l'app utilise toujours Bambu Studio avec le profil H2C : l'imprimante choisie n'influe que sur les coûts."],
+        "plateMoreHint": ["it":"I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.",
+                          "en":"Dimmed plates aren't sliced yet: tap to select them, then hit Slice.",
+                          "es":"Las placas apagadas aún no están laminadas: tócalas para seleccionarlas y pulsa Laminar.",
+                          "fr":"Les plateaux éteints ne sont pas encore découpés : touchez-les pour les sélectionner, puis lancez Découper."],
         "platesFailed": ["it":"Piatti non slicabili: %@ — aprili in Bambu Studio",
                          "en":"Plates that couldn't be sliced: %@ — open them in Bambu Studio",
                          "es":"Placas no laminables: %@ — ábrelas en Bambu Studio",
@@ -438,6 +442,7 @@ final class AppModel: ObservableObject {
 
     func add(paths: [String]) {
         var rejected = false
+        var added3mf = false
         for p in paths {
             let low = p.lowercased()
             if low.hasSuffix(".3mf") {
@@ -445,6 +450,7 @@ final class AppModel: ObservableObject {
                 if files.contains(where: { $0.path == p }) { continue }
                 let lf = LoadedFile(name: name, path: p, state: Slicer.analyze(p))
                 files.append(lf)
+                added3mf = true
                 // anteprime piatti in background (non bloccano l'interfaccia)
                 Task.detached {
                     let imgs = Slicer.thumbnails(p)
@@ -457,6 +463,8 @@ final class AppModel: ObservableObject {
                 rejected = true   // es. G-code puro: senza metadati 3mf non c'è nulla da leggere
             }
         }
+        // un file nuovo porta dritti dove si lavora: File & Slicing
+        if added3mf { section = .files }
         if rejected { flash("errGcode") }
     }
 
@@ -474,20 +482,53 @@ final class AppModel: ObservableObject {
         if f.excluded.contains(index) { f.excluded.remove(index) } else { f.excluded.insert(index) }
         objectWillChange.send()
     }
+    func togglePick(_ f: LoadedFile, _ index: Int) {
+        if f.toSlice.contains(index) { f.toSlice.remove(index) } else { f.toSlice.insert(index) }
+        objectWillChange.send()
+    }
     func slice(_ f: LoadedFile) {
-        busy = String(format: t("busy"), f.name)
         let path = f.path
-        // si slicano solo i piatti selezionati tra le anteprime (tutti, se tutti spuntati)
-        let total = f.thumbs.count
-        let sel = total > 0 ? (1...total).filter { !f.excluded.contains($0) } : []
+        // file già slicato → giro incrementale sui piatti spenti selezionati;
+        // altrimenti si slicano i piatti spuntati tra le anteprime (tutti, se tutti spuntati)
+        let incremental = f.analysis != nil
+        let sel: [Int]
+        if incremental {
+            sel = f.toSlice.sorted()
+            if sel.isEmpty { return }
+        } else {
+            let total = f.thumbs.count
+            sel = total > 0 ? (1...total).filter { !f.excluded.contains($0) } : []
+        }
+        busy = String(format: t("busy"), f.name)
         Task.detached {
             let st = Slicer.slice(path, plates: sel)
             await MainActor.run {
-                f.state = st; self.objectWillChange.send(); self.busy = nil
-                if case .sliced(let a) = st, !a.failed.isEmpty {
-                    self.flashText(String(format: self.t("platesFailed"),
-                                          a.failed.map(String.init).joined(separator: ", ")))
+                self.busy = nil
+                if incremental {
+                    f.toSlice = []
+                    if case .sliced(let add) = st, case .sliced(var cur) = f.state {
+                        cur.plates = (cur.plates + add.plates).sorted { $0.index < $1.index }
+                        cur.seconds += add.seconds
+                        cur.grams += add.grams
+                        for (k, g) in add.perColor { cur.perColor[k, default: 0] += g }
+                        let okIdx = Set(add.plates.map { $0.index })
+                        cur.failed = Array(Set(cur.failed).subtracting(okIdx).union(add.failed)).sorted()
+                        f.state = .sliced(cur)
+                        if !add.failed.isEmpty {
+                            self.flashText(String(format: self.t("platesFailed"),
+                                                  add.failed.map(String.init).joined(separator: ", ")))
+                        }
+                    } else {
+                        self.flash("sliceFailed")
+                    }
+                } else {
+                    f.state = st
+                    if case .sliced(let a) = st, !a.failed.isEmpty {
+                        self.flashText(String(format: self.t("platesFailed"),
+                                              a.failed.map(String.init).joined(separator: ", ")))
+                    }
                 }
+                self.objectWillChange.send()
             }
         }
     }

@@ -317,11 +317,13 @@
         path: p,
         analysis: res.error ? null : res,
         excluded: new Set(),
+        toSlice: new Set(),
         thumbs: [],
       };
       M.files.push(file);
       if (res.error === 'notSliced') toast(fmt(t('errNotSliced'), name));
-      render();
+      // un file nuovo porta dritti dove si lavora: File & Slicing
+      setSection('files');
       // le anteprime dei piatti arrivano dopo, senza bloccare l'interfaccia
       api.thumbnails(p).then((thumbs) => {
         file.thumbs = thumbs || [];
@@ -331,16 +333,34 @@
   }
 
   async function sliceFile(file) {
+    // file già slicato → giro incrementale: si aggiungono i piatti scelti tra quelli spenti
+    const incremental = !!file.analysis;
+    let sel;
+    if (incremental) {
+      sel = [...(file.toSlice || [])].sort((a, b) => a - b);
+      if (!sel.length) return;
+    } else {
+      // si slicano solo i piatti selezionati tra le anteprime (tutti, se tutti spuntati)
+      sel = [];
+      for (let i = 1; i <= file.thumbs.length; i++) if (!file.excluded.has(i)) sel.push(i);
+    }
     setBusy(fmt(t('busy'), file.name));
-    // si slicano solo i piatti selezionati tra le anteprime (tutti, se tutti spuntati)
-    const total = file.thumbs.length;
-    const included = [];
-    for (let i = 1; i <= total; i++) if (!file.excluded.has(i)) included.push(i);
-    const res = await api.slice(file.path, included);
+    const res = await api.slice(file.path, sel);
     setBusy(null);
     if (res.error === 'noBambu') return toast(t('bambuMissing'));
     if (res.error) return toast(fmt(t('errSliceFail'), file.name));
-    file.analysis = res;
+    if (incremental) {
+      file.toSlice = new Set();
+      const cur = file.analysis;
+      cur.plates = cur.plates.concat(res.plates).sort((a, b) => a.index - b.index);
+      cur.seconds += res.seconds;
+      cur.grams += res.grams;
+      for (const [k, g] of Object.entries(res.perColor)) cur.perColor[k] = (cur.perColor[k] || 0) + g;
+      const okIdx = new Set(res.plates.map((p) => p.index));
+      cur.failed = [...new Set([...(cur.failed || []).filter((n) => !okIdx.has(n)), ...(res.failed || [])])].sort((a, b) => a - b);
+    } else {
+      file.analysis = res;
+    }
     if (res.failed && res.failed.length) toast(fmt(t('platesFailed'), res.failed.join(', ')));
     else toast(fmt(t('okSliced'), file.name));
     render();
@@ -491,26 +511,34 @@
           );
         })()
       : `<button class="btn small primary" data-slice="${f.id}">${esc(t('slice'))}</button>`;
+    // giro incrementale: piatti spenti selezionati e pronti da slicare
+    const more = f.analysis && f.toSlice && f.toSlice.size
+      ? `<button class="btn small primary" data-slice="${f.id}">${esc(t('slice'))} (${f.toSlice.size})</button>`
+      : '';
 
     // nei file già slicati contano solo i piatti con dati: le altre anteprime
-    // (es. export di un piatto solo, che conserva le immagini di tutti) vanno spente
+    // restano spente ma cliccabili, per slicarle in un secondo momento
     const dataIdx = f.analysis ? new Set(f.analysis.plates.map((p) => p.index)) : null;
+    const hasMore = dataIdx && f.thumbs.length > dataIdx.size;
     const thumbs = f.thumbs.length
       ? `<div class="thumbs">${f.thumbs
           .map((src, i) => {
-            if (dataIdx && !dataIdx.has(i + 1))
-              return `<button class="thumb none" disabled><img src="${src}" alt=""><span class="idx">${i + 1}</span></button>`;
+            if (dataIdx && !dataIdx.has(i + 1)) {
+              const pick = f.toSlice && f.toSlice.has(i + 1);
+              return `<button class="thumb none${pick ? ' pick' : ''}" data-more="${f.id}:${i + 1}">
+                <img src="${src}" alt=""><span class="tick">${pick ? '+' : ''}</span><span class="idx">${i + 1}</span></button>`;
+            }
             const on = !f.excluded.has(i + 1);
             return `<button class="thumb${on ? ' on' : ''}" data-plate="${f.id}:${i + 1}">
               <img src="${src}" alt="">
               <span class="tick">${on ? '✓' : ''}</span><span class="idx">${i + 1}</span></button>`;
           })
-          .join('')}</div><div class="hint">${esc(t('plateHint'))}</div>`
+          .join('')}</div><div class="hint">${esc(t(hasMore ? 'plateMoreHint' : 'plateHint'))}</div>`
       : '';
 
     return card(`<div class="frow">
         <span class="fname">📄 ${esc(f.name)}</span>
-        <div class="fstats">${head}</div>
+        <div class="fstats">${head}${more}</div>
         <button class="x" data-del="${f.id}">✕</button>
       </div>${thumbs}`, 'file');
   }
@@ -959,6 +987,19 @@
       if (sl) {
         const f = M.files.find((x) => x.id === +sl.getAttribute('data-slice'));
         return f && sliceFile(f);
+      }
+
+      const morePick = hit('data-more');
+      if (morePick) {
+        const [id, idx] = morePick.getAttribute('data-more').split(':').map(Number);
+        const f = M.files.find((x) => x.id === id);
+        if (f) {
+          if (!f.toSlice) f.toSlice = new Set();
+          if (f.toSlice.has(idx)) f.toSlice.delete(idx);
+          else f.toSlice.add(idx);
+          render();
+        }
+        return;
       }
 
       const plate = hit('data-plate');

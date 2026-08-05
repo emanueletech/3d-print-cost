@@ -484,3 +484,10 @@ input, textarea { user-select: text; }
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5);
 }
 .update-bar .x { background: none; border: none; color: rgba(238, 242, 251, 0.55); cursor: pointer; font-size: 13px; }
+
+/* piatti spenti selezionati per lo slicing incrementale */
+.thumb.none { cursor: pointer; }
+.thumb.none img { opacity: .25; }
+.thumb.none.pick { border: 2px dashed rgba(255, 154, 74, .9); }
+.thumb.none.pick img { opacity: .7; filter: grayscale(.4); }
+.thumb.none.pick .tick { color: #ff9a4a; }

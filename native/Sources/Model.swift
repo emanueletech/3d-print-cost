@@ -38,6 +38,7 @@ final class LoadedFile: Identifiable, ObservableObject {
     @Published var state: LoadState
     @Published var thumbs: [NSImage] = []      // anteprime dei piatti (dal 3mf)
     @Published var excluded: Set<Int> = []     // indici piatti esclusi dal calcolo
+    @Published var toSlice: Set<Int> = []      // piatti spenti scelti per lo slicing incrementale
     init(name: String, path: String, state: LoadState) {
         self.name = name; self.path = path; self.state = state
     }

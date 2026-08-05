@@ -515,6 +515,11 @@ struct FileCard: View {
                         stat(hms(secs), m.t("thTime"))
                         stat("\(Int(g)) g", m.t("thGrams"))
                         stat(eur(secs/3600*m.watts/1000*m.kwh), m.t("thEnergy"))
+                        // giro incrementale: piatti spenti selezionati e pronti da slicare
+                        if !f.toSlice.isEmpty {
+                            Button("\(m.t("slice")) (\(f.toSlice.count))") { m.slice(f) }
+                                .buttonStyle(.borderedProminent).controlSize(.small).tint(.orange)
+                        }
                     } else {
                         if case .error(let e) = f.state {
                             Label(m.t(e == "noBambu" ? "noBambuShort" : "sliceFailed"), systemImage: "exclamationmark.triangle.fill")
@@ -534,15 +539,25 @@ struct FileCard: View {
                         HStack(spacing: 8) {
                             ForEach(Array(f.thumbs.enumerated()), id: \.offset) { i, img in
                                 if let d = dataIdx, !d.contains(i+1) {
-                                    ZStack(alignment: .bottomLeading) {
-                                        Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
-                                            .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 9))
-                                            .saturation(0).opacity(0.22)
-                                            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.white.opacity(0.08)))
-                                        Text("\(i+1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white.opacity(0.5))
-                                            .padding(.horizontal, 5).padding(.vertical, 1)
-                                            .background(Capsule().fill(.black.opacity(0.4))).padding(4)
-                                    }.frame(width: 64, height: 64)
+                                    // piatto senza dati: spento ma cliccabile, per slicarlo in un secondo momento
+                                    let pick = f.toSlice.contains(i+1)
+                                    Button { m.togglePick(f, i+1) } label: {
+                                        ZStack(alignment: .topTrailing) {
+                                            Image(nsImage: img).resizable().aspectRatio(contentMode: .fill)
+                                                .frame(width: 64, height: 64).clipShape(RoundedRectangle(cornerRadius: 9))
+                                                .saturation(pick ? 0.6 : 0).opacity(pick ? 0.85 : 0.25)
+                                                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(
+                                                    pick ? Color.orange.opacity(0.9) : .white.opacity(0.1),
+                                                    style: StrokeStyle(lineWidth: pick ? 2 : 1, dash: pick ? [] : [4])))
+                                            Image(systemName: pick ? "checkmark.circle.fill" : "plus.circle")
+                                                .font(.system(size: 14)).foregroundStyle(pick ? Color.orange : .white.opacity(0.5))
+                                                .background(Circle().fill(.black.opacity(0.4))).padding(3)
+                                            Text("\(i+1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white.opacity(0.6))
+                                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                                .background(Capsule().fill(.black.opacity(0.45)))
+                                                .padding(4).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                                        }.frame(width: 64, height: 64)
+                                    }.buttonStyle(.plain)
                                 } else {
                                 let on = !f.excluded.contains(i+1)
                                 Button { m.togglePlate(f, i+1) } label: {
@@ -565,7 +580,8 @@ struct FileCard: View {
                             }
                         }.padding(.top, 1)
                     }
-                    Text(m.t("plateHint")).font(.system(size: 11)).foregroundStyle(.secondary)
+                    let hasMore = f.analysis != nil && f.thumbs.count > (f.analysis?.plates.count ?? 0)
+                    Text(m.t(hasMore ? "plateMoreHint" : "plateHint")).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
             }
         }
