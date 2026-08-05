@@ -47,6 +47,8 @@
     thSpool: { it: 'Bobina', en: 'Spool', es: 'Bobina', fr: 'Bobine' },
     thUsed: { it: 'Consumato', en: 'Used', es: 'Consumido', fr: 'Consommé' },
     usedColors: { it: 'Colori usati nel progetto', en: 'Colors used in this project', es: 'Colores usados en el proyecto', fr: 'Couleurs utilisées dans le projet' },
+    selAll: { it: 'Tutti', en: 'All', es: 'Todas', fr: 'Tous' },
+    selNone: { it: 'Nessuno', en: 'None', es: 'Ninguna', fr: 'Aucun' },
     plateMoreHint: {
       it: 'I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.',
       en: "Dimmed plates aren't sliced yet: tap to select them, then hit Slice.",

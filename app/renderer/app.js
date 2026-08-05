@@ -520,6 +520,7 @@
     // restano spente ma cliccabili, per slicarle in un secondo momento
     const dataIdx = f.analysis ? new Set(f.analysis.plates.map((p) => p.index)) : null;
     const hasMore = dataIdx && f.thumbs.length > dataIdx.size;
+    const totSecs = f.analysis ? f.analysis.plates.reduce((s, p) => s + p.seconds, 0) : 0;
     const thumbs = f.thumbs.length
       ? `<div class="thumbs">${f.thumbs
           .map((src, i) => {
@@ -529,11 +530,21 @@
                 <img src="${src}" alt=""><span class="tick">${pick ? '+' : ''}</span><span class="idx">${i + 1}</span></button>`;
             }
             const on = !f.excluded.has(i + 1);
+            // sui piatti con dati la spunta lascia il posto alla quota di tempo del piatto
+            let badge = `<span class="tick">${on ? '✓' : ''}</span>`;
+            if (dataIdx) {
+              const p = f.analysis.plates.find((x) => x.index === i + 1);
+              const pct = totSecs > 0 ? Math.round((100 * p.seconds) / totSecs) : 0;
+              badge = `<span class="pct${on ? '' : ' off'}">${pct < 1 ? '<1' : pct}%</span>`;
+            }
             return `<button class="thumb${on ? ' on' : ''}" data-plate="${f.id}:${i + 1}">
-              <img src="${src}" alt="">
-              <span class="tick">${on ? '✓' : ''}</span><span class="idx">${i + 1}</span></button>`;
+              <img src="${src}" alt="">${badge}<span class="idx">${i + 1}</span></button>`;
           })
-          .join('')}</div><div class="hint">${esc(t(hasMore ? 'plateMoreHint' : 'plateHint'))}</div>`
+          .join('')}</div>
+        <div class="hint hintrow">${esc(t(hasMore ? 'plateMoreHint' : 'plateHint'))}
+          <span class="hspace"></span>
+          <button class="lnk" data-selall="${f.id}">${esc(t('selAll'))}</button> ·
+          <button class="lnk" data-selnone="${f.id}">${esc(t('selNone'))}</button></div>`
       : '';
 
     return card(`<div class="frow">
@@ -987,6 +998,30 @@
       if (sl) {
         const f = M.files.find((x) => x.id === +sl.getAttribute('data-slice'));
         return f && sliceFile(f);
+      }
+
+      const selAll = hit('data-selall');
+      const selNone = hit('data-selnone');
+      if (selAll || selNone) {
+        const el = selAll || selNone;
+        const f = M.files.find((x) => x.id === +el.getAttribute(selAll ? 'data-selall' : 'data-selnone'));
+        if (f) {
+          if (!f.toSlice) f.toSlice = new Set();
+          if (selAll) {
+            f.excluded = new Set();
+            if (f.analysis) {
+              const have = new Set(f.analysis.plates.map((p) => p.index));
+              f.toSlice = new Set(Array.from({ length: f.thumbs.length }, (_, i) => i + 1).filter((n) => !have.has(n)));
+            }
+          } else {
+            f.excluded = f.analysis
+              ? new Set(f.analysis.plates.map((p) => p.index))
+              : new Set(Array.from({ length: f.thumbs.length }, (_, i) => i + 1));
+            f.toSlice = new Set();
+          }
+          render();
+        }
+        return;
       }
 
       const morePick = hit('data-more');

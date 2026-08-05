@@ -39,6 +39,8 @@ enum Loc {
                    "en":"Already-sliced 3mf (from any slicer) are read instantly. In-app slicing always uses Bambu Studio with the H2C profile: the printer picked above only affects costs.",
                    "es":"Los 3mf ya laminados (de cualquier laminador) se leen al instante. El laminado desde la app usa siempre Bambu Studio con el perfil H2C: la impresora elegida solo afecta a los costes.",
                    "fr":"Les 3mf déjà découpés (de n'importe quel slicer) sont lus instantanément. La découpe depuis l'app utilise toujours Bambu Studio avec le profil H2C : l'imprimante choisie n'influe que sur les coûts."],
+        "selAll": ["it":"Tutti","en":"All","es":"Todas","fr":"Tous"],
+        "selNone": ["it":"Nessuno","en":"None","es":"Ninguna","fr":"Aucun"],
         "plateMoreHint": ["it":"I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.",
                           "en":"Dimmed plates aren't sliced yet: tap to select them, then hit Slice.",
                           "es":"Las placas apagadas aún no están laminadas: tócalas para seleccionarlas y pulsa Laminar.",
@@ -484,6 +486,25 @@ final class AppModel: ObservableObject {
     }
     func togglePick(_ f: LoadedFile, _ index: Int) {
         if f.toSlice.contains(index) { f.toSlice.remove(index) } else { f.toSlice.insert(index) }
+        objectWillChange.send()
+    }
+    /// Tutte le spunte accese: piatti con dati inclusi nei conti, piatti spenti scelti per lo slicing.
+    func selectAllPlates(_ f: LoadedFile) {
+        f.excluded = []
+        if let a = f.analysis, !f.thumbs.isEmpty {
+            let have = Set(a.plates.map { $0.index })
+            f.toSlice = Set((1...f.thumbs.count).filter { !have.contains($0) })
+        }
+        objectWillChange.send()
+    }
+    /// Tutte le spunte spente.
+    func selectNoPlates(_ f: LoadedFile) {
+        if let a = f.analysis {
+            f.excluded = Set(a.plates.map { $0.index })
+        } else if !f.thumbs.isEmpty {
+            f.excluded = Set(1...f.thumbs.count)
+        }
+        f.toSlice = []
         objectWillChange.send()
     }
     func slice(_ f: LoadedFile) {

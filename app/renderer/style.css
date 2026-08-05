@@ -491,3 +491,20 @@ input, textarea { user-select: text; }
 .thumb.none.pick { border: 2px dashed rgba(255, 154, 74, .9); }
 .thumb.none.pick img { opacity: .7; filter: grayscale(.4); }
 .thumb.none.pick .tick { color: #ff9a4a; }
+
+/* quota di tempo del piatto (al posto della spunta, sui piatti con dati) */
+.thumb .pct {
+  position: absolute; top: 3px; right: 3px;
+  font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6); color: #4aa3ff; font-variant-numeric: tabular-nums;
+}
+.thumb .pct.off { color: rgba(238, 242, 251, 0.45); }
+
+/* riga suggerimento con Tutti / Nessuno */
+.hintrow { display: flex; align-items: center; gap: 6px; }
+.hintrow .hspace { flex: 1; }
+.hintrow .lnk {
+  background: none; border: none; cursor: pointer; padding: 0;
+  color: rgba(238, 242, 251, 0.65); font-size: 11px; font-weight: 600;
+}
+.hintrow .lnk:hover { color: #4aa3ff; }

@@ -567,9 +567,19 @@ struct FileCard: View {
                                             .background(RoundedRectangle(cornerRadius: 9).fill(.black.opacity(0.15)))
                                             .saturation(on ? 1 : 0).opacity(on ? 1 : 0.4)
                                             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(on ? Color.accentColor.opacity(0.9) : .white.opacity(0.12), lineWidth: on ? 2 : 1))
-                                        Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                                            .font(.system(size: 14)).foregroundStyle(on ? Color.accentColor : .white.opacity(0.7))
-                                            .background(Circle().fill(.black.opacity(0.4))).padding(3)
+                                        // sui piatti con dati la spunta lascia il posto alla quota di tempo del piatto
+                                        if let a = f.analysis, let p = a.plates.first(where: { $0.index == i+1 }), a.seconds > 0 {
+                                            let pct = Int((p.seconds / a.seconds * 100).rounded())
+                                            Text(pct < 1 ? "<1%" : "\(pct)%")
+                                                .font(.system(size: 9, weight: .bold)).monospacedDigit()
+                                                .foregroundStyle(on ? Color.accentColor : .white.opacity(0.5))
+                                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                                .background(Capsule().fill(.black.opacity(0.6))).padding(3)
+                                        } else {
+                                            Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                                                .font(.system(size: 14)).foregroundStyle(on ? Color.accentColor : .white.opacity(0.7))
+                                                .background(Circle().fill(.black.opacity(0.4))).padding(3)
+                                        }
                                         Text("\(i+1)").font(.system(size: 9, weight: .bold)).foregroundStyle(.white)
                                             .padding(.horizontal, 5).padding(.vertical, 1)
                                             .background(Capsule().fill(.black.opacity(0.55)))
@@ -581,7 +591,15 @@ struct FileCard: View {
                         }.padding(.top, 1)
                     }
                     let hasMore = f.analysis != nil && f.thumbs.count > (f.analysis?.plates.count ?? 0)
-                    Text(m.t(hasMore ? "plateMoreHint" : "plateHint")).font(.system(size: 11)).foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Text(m.t(hasMore ? "plateMoreHint" : "plateHint")).font(.system(size: 11)).foregroundStyle(.secondary)
+                        Spacer()
+                        Button(m.t("selAll")) { m.selectAllPlates(f) }
+                            .buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).pointerStyle(.link)
+                        Text("·").font(.system(size: 11)).foregroundStyle(.tertiary)
+                        Button(m.t("selNone")) { m.selectNoPlates(f) }
+                            .buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary).pointerStyle(.link)
+                    }
                 }
             }
         }
