@@ -9,6 +9,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const threemf = require('./threemf');
+const zip = require('./zip');
 const { remap } = require('./remap');
 
 const SLICE_TIMEOUT_MS = 30 * 60 * 1000;
@@ -123,9 +124,21 @@ function settingsArg(profilesDir) {
   return `${path.join(profilesDir, 'machine_H2C_04.json')};${path.join(profilesDir, 'process_020_H2C.json')}`;
 }
 
-/** Slicing di un progetto .3mf non slicato (con fallback di rimappaggio sulla griglia H2C).
- *  `plate` > 0 slica solo quel piatto (numerazione del progetto); 0 = tutti. */
-async function slice(file, { profilesDir, bambuPath, plate = 0 } = {}) {
+/** Numero di piatti dichiarati dal progetto (Metadata/model_settings.config). */
+function plateCount(file) {
+  try {
+    const ms = zip.read(file, 'Metadata/model_settings.config');
+    return ms ? ms.toString('utf8').split('<plate>').length - 1 : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Slicing di un progetto .3mf non slicato, con fallback di rimappaggio sulla
+ *  griglia H2C e salvataggio piatto-per-piatto: un piatto guasto non fa più
+ *  fallire l'intero file, finisce nell'elenco `failed` del risultato.
+ *  `plates`: piatti richiesti (numerazione del progetto); vuoto = tutti. */
+async function slice(file, { profilesDir, bambuPath, plates = [] } = {}) {
   const bambu = findBambu(bambuPath);
   if (!bambu) return { error: 'noBambu' };
 
@@ -135,32 +148,74 @@ async function slice(file, { profilesDir, bambuPath, plate = 0 } = {}) {
     const fil = filamentProfiles(proj.slotTypes, profilesDir);
     const outFile = path.join(tmp, 'sliced.3mf');
 
-    const attempt = async (src, arrange) => {
+    const attempt = async (src, { plate = 0, arrange = false } = {}) => {
+      fs.rmSync(outFile, { force: true }); // mai fidarsi dell'export del tentativo precedente
       const ok = await run(bambu, [
         '--load-settings', settingsArg(profilesDir),
         '--load-filaments', fil,
         ...(arrange ? ['--arrange', '1'] : []),
-        '--slice', String(plate || 0), '--debug', '1',
+        '--slice', String(plate), '--debug', '1',
         '--export-3mf', 'sliced.3mf', '--outputdir', tmp, src,
       ]);
       return ok && fs.existsSync(outFile);
     };
 
+    // rimappato una sola volta, alla prima necessità (null = tentato e fallito)
+    const remappedFile = path.join(tmp, 'remapped.3mf');
+    let remapState;
+    const remapped = () => {
+      if (remapState === undefined) remapState = remap(file, remappedFile, profilesDir) ? remappedFile : null;
+      return remapState;
+    };
+
+    // estrae l'unico piatto dall'export e gli restituisce il numero del progetto
+    const single = (n) => {
+      const a = threemf.analyze(outFile);
+      if (a.error || !a.plates || !a.plates.length) return null;
+      const p = a.plates[0];
+      p.index = n;
+      return p;
+    };
+    const pack = (good, failed) => {
+      const perColor = {};
+      let seconds = 0;
+      let grams = 0;
+      for (const p of good) {
+        seconds += p.seconds;
+        grams += p.grams;
+        for (const [k, g] of Object.entries(p.colorGrams)) perColor[k] = (perColor[k] || 0) + g;
+      }
+      good.sort((a, b) => a.index - b.index);
+      return { plates: good, seconds, grams, perColor, failed };
+    };
+    // un piatto alla volta: prova l'originale, poi il rimappato
+    const salvage = async (targets) => {
+      const good = [];
+      const failed = [];
+      for (const n of targets) {
+        let done = await attempt(file, { plate: n });
+        if (!done && remapped()) done = await attempt(remapped(), { plate: n });
+        const p = done ? single(n) : null;
+        if (p) good.push(p);
+        else failed.push(n);
+      }
+      if (!good.length) return { error: 'sliceFail' };
+      return pack(good, failed);
+    };
+
+    const total = Math.max(plateCount(file), 1);
+    const targets = plates.length ? plates.filter((n) => n >= 1).sort((a, b) => a - b) : Array.from({ length: total }, (_, i) => i + 1);
+
+    // sottoinsieme (o piatto singolo): direttamente piatto per piatto
+    if (targets.length < total || targets.length === 1) return await salvage(targets);
+
+    // tutto il file: originale → rimappato → riadattato (--arrange, come la GUI
+    // al cambio stampante); se l'insieme fallisce, si salva piatto per piatto
     let ok = await attempt(file);
-    if (!ok) {
-      // progetto nato per un'altra stampante: riposiziona sulla griglia H2C e riprova
-      const remapped = path.join(tmp, 'remapped.3mf');
-      if (remap(file, remapped, profilesDir)) ok = await attempt(remapped);
-    }
-    // ultima spiaggia: lascia che sia Bambu Studio a riadattare la disposizione
-    // sul piatto H2C (come fa la GUI quando si cambia stampante)
-    if (!ok) ok = await attempt(file, true);
-    if (!ok) return { error: 'sliceFail' };
-    const a = threemf.analyze(outFile);
-    // slicing di un piatto solo: l'indice torna quello del progetto,
-    // così le spunte sulle anteprime restano allineate
-    if (plate > 0 && a && a.plates && a.plates.length === 1) a.plates[0].index = plate;
-    return a;
+    if (!ok && remapped()) ok = await attempt(remapped());
+    if (!ok) ok = await attempt(file, { arrange: true });
+    if (ok) return threemf.analyze(outFile);
+    return await salvage(targets);
   } finally {
     cleanup(tmp);
   }

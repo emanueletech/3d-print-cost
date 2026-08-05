@@ -332,17 +332,17 @@
 
   async function sliceFile(file) {
     setBusy(fmt(t('busy'), file.name));
-    // un solo piatto selezionato tra tanti → si slica solo quello
+    // si slicano solo i piatti selezionati tra le anteprime (tutti, se tutti spuntati)
     const total = file.thumbs.length;
     const included = [];
     for (let i = 1; i <= total; i++) if (!file.excluded.has(i)) included.push(i);
-    const plate = total > 1 && included.length === 1 ? included[0] : 0;
-    const res = await api.slice(file.path, plate);
+    const res = await api.slice(file.path, included);
     setBusy(null);
     if (res.error === 'noBambu') return toast(t('bambuMissing'));
     if (res.error) return toast(fmt(t('errSliceFail'), file.name));
     file.analysis = res;
-    toast(fmt(t('okSliced'), file.name));
+    if (res.failed && res.failed.length) toast(fmt(t('platesFailed'), res.failed.join(', ')));
+    else toast(fmt(t('okSliced'), file.name));
     render();
   }
 

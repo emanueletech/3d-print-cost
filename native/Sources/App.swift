@@ -39,6 +39,10 @@ enum Loc {
                    "en":"Already-sliced 3mf (from any slicer) are read instantly. In-app slicing always uses Bambu Studio with the H2C profile: the printer picked above only affects costs.",
                    "es":"Los 3mf ya laminados (de cualquier laminador) se leen al instante. El laminado desde la app usa siempre Bambu Studio con el perfil H2C: la impresora elegida solo afecta a los costes.",
                    "fr":"Les 3mf déjà découpés (de n'importe quel slicer) sont lus instantanément. La découpe depuis l'app utilise toujours Bambu Studio avec le profil H2C : l'imprimante choisie n'influe que sur les coûts."],
+        "platesFailed": ["it":"Piatti non slicabili: %@ — aprili in Bambu Studio",
+                         "en":"Plates that couldn't be sliced: %@ — open them in Bambu Studio",
+                         "es":"Placas no laminables: %@ — ábrelas en Bambu Studio",
+                         "fr":"Plateaux non découpables : %@ — ouvrez-les dans Bambu Studio"],
         "sliceFailed": ["it":"Slicing fallito — riprova o aprilo in Bambu Studio",
                         "en":"Slicing failed — retry or open it in Bambu Studio",
                         "es":"Laminado fallido — reintenta o ábrelo en Bambu Studio",
@@ -458,10 +462,10 @@ final class AppModel: ObservableObject {
 
     /// Avviso temporaneo in basso (l'equivalente del toast dell'app desktop).
     @Published var notice: String? = nil
-    func flash(_ key: String) {
-        let msg = t(key)
+    func flash(_ key: String) { flashText(t(key)) }
+    func flashText(_ msg: String) {
         notice = msg
-        DispatchQueue.main.asyncAfter(deadline: .now() + 6) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + 7) { [weak self] in
             if self?.notice == msg { self?.notice = nil }
         }
     }
@@ -473,13 +477,18 @@ final class AppModel: ObservableObject {
     func slice(_ f: LoadedFile) {
         busy = String(format: t("busy"), f.name)
         let path = f.path
-        // un solo piatto selezionato tra tanti → si slica solo quello
+        // si slicano solo i piatti selezionati tra le anteprime (tutti, se tutti spuntati)
         let total = f.thumbs.count
-        let included = (1...max(total, 1)).filter { !f.excluded.contains($0) }
-        let plate = (total > 1 && included.count == 1) ? included[0] : 0
+        let sel = total > 0 ? (1...total).filter { !f.excluded.contains($0) } : []
         Task.detached {
-            let st = Slicer.slice(path, plate: plate)
-            await MainActor.run { f.state = st; self.objectWillChange.send(); self.busy = nil }
+            let st = Slicer.slice(path, plates: sel)
+            await MainActor.run {
+                f.state = st; self.objectWillChange.send(); self.busy = nil
+                if case .sliced(let a) = st, !a.failed.isEmpty {
+                    self.flashText(String(format: self.t("platesFailed"),
+                                          a.failed.map(String.init).joined(separator: ", ")))
+                }
+            }
         }
     }
 

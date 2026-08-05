@@ -26,6 +26,7 @@ struct FileAnalysis {
     var seconds: Double
     var grams: Double
     var perColor: [String: Double]   // key -> grams
+    var failed: [Int] = []           // piatti che non si sono potuti slicare
 }
 
 enum LoadState { case sliced(FileAnalysis), notSliced, error(String) }
@@ -185,9 +186,11 @@ enum Slicer {
         return .sliced(FileAnalysis(plates: plates, seconds: seconds, grams: grams, perColor: perColor))
     }
 
-    /// Slicing con Bambu Studio CLI (profilo H2C), con fallback di riposizionamento sulla griglia.
-    /// `plate` > 0 slica solo quel piatto (numerazione del progetto); 0 = tutti.
-    static func slice(_ file: String, plate: Int = 0) -> LoadState {
+    /// Slicing con Bambu Studio CLI (profilo H2C), con fallback di riposizionamento
+    /// sulla griglia e salvataggio piatto-per-piatto: un piatto guasto non fa più
+    /// fallire l'intero file, viene solo segnalato in `FileAnalysis.failed`.
+    /// `sel`: piatti richiesti (numerazione del progetto); vuoto = tutti.
+    static func slice(_ file: String, plates sel: [Int] = []) -> LoadState {
         guard FileManager.default.fileExists(atPath: bambu) else { return .error("noBambu") }
         let res = resourcesDir()
         let prof = res + "/profiles"
@@ -195,18 +198,21 @@ enum Slicer {
         try? FileManager.default.createDirectory(atPath: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(atPath: tmp) }
 
+        let out = tmp + "/sliced.3mf"
+
         FileManager.default.createFile(atPath: logPath, contents: nil)
         let log = FileHandle(forWritingAtPath: logPath)
         defer { log?.closeFile() }
         func note(_ s: String) { log?.write((s + "\n").data(using: .utf8)!) }
-        note(plate > 0 ? "=== \(file) (solo piatto \(plate))" : "=== \(file)")
+        note(sel.isEmpty ? "=== \(file)" : "=== \(file) (piatti \(sel.map(String.init).joined(separator: ", ")))")
 
         let proj = parseProject(file)
         let fil = (proj.slotTypes.isEmpty ? ["PLA Basic"] : proj.slotTypes)
             .map { prof + "/" + ($0.contains("Matte") ? "fil_PLA_Matte_H2C.json" : "fil_PLA_Basic_H2C.json") }
             .joined(separator: ";")
 
-        func runSlice(_ src: String, arrange: Bool = false) -> Bool {
+        func runSlice(_ src: String, plate: Int = 0, arrange: Bool = false) -> Bool {
+            try? FileManager.default.removeItem(atPath: out)   // mai fidarsi dell'export del tentativo precedente
             let args = [
                 "--load-settings", "\(prof)/machine_H2C_04.json;\(prof)/process_020_H2C.json",
                 "--load-filaments", fil]
@@ -214,33 +220,69 @@ enum Slicer {
                 + ["--slice", "\(plate)", "--debug", "1",
                    "--export-3mf", "sliced.3mf", "--outputdir", tmp, src]
             note("$ BambuStudio " + args.joined(separator: " "))
-            let (code, out) = run(bambu, args, errTo: log)
-            if let s = String(data: out, encoding: .utf8), !s.isEmpty { note("[stdout] " + String(s.suffix(20000))) }
+            let (code, outData) = run(bambu, args, errTo: log)
+            if let s = String(data: outData, encoding: .utf8), !s.isEmpty { note("[stdout] " + String(s.suffix(20000))) }
             note("[exit] \(code)")
-            return code == 0 && FileManager.default.fileExists(atPath: tmp + "/sliced.3mf")
+            return code == 0 && FileManager.default.fileExists(atPath: out)
         }
 
-        var ok = runSlice(file)
-        if !ok {
-            let remapped = tmp + "/remapped.3mf"
-            note("$ python3 remap.py (fallback riposizionamento griglia)")
-            let (c, _) = run("/usr/bin/python3", [res + "/remap.py", file, remapped], errTo: log)
+        // rimappato una sola volta, alla prima necessità ("" = tentato e fallito)
+        var remapPath: String? = nil
+        func remapped() -> String? {
+            if let r = remapPath { return r.isEmpty ? nil : r }
+            let dst = tmp + "/remapped.3mf"
+            note("$ python3 remap.py (riposizionamento sulla griglia H2C)")
+            let (c, _) = run("/usr/bin/python3", [res + "/remap.py", file, dst], errTo: log)
             note("[exit] \(c)")
-            if c == 0 { ok = runSlice(remapped) }
+            remapPath = (c == 0 && FileManager.default.fileExists(atPath: dst)) ? dst : ""
+            return remapPath!.isEmpty ? nil : remapPath
         }
-        // ultima spiaggia: lascia che sia Bambu Studio a riadattare la disposizione
-        // sul piatto H2C (come fa la GUI quando si cambia stampante)
+
+        // estrae l'unico piatto dall'export e gli restituisce il numero del progetto
+        func single(_ n: Int) -> PlateInfo? {
+            guard case .sliced(let a) = analyze(out), let p = a.plates.first else { return nil }
+            return PlateInfo(index: n, seconds: p.seconds, grams: p.grams, colorGrams: p.colorGrams)
+        }
+        func pack(_ plates: [PlateInfo], failed: [Int]) -> LoadState {
+            var perColor: [String: Double] = [:]
+            for p in plates { for (k, g) in p.colorGrams { perColor[k, default: 0] += g } }
+            return .sliced(FileAnalysis(plates: plates.sorted { $0.index < $1.index },
+                                        seconds: plates.reduce(0) { $0 + $1.seconds },
+                                        grams: plates.reduce(0) { $0 + $1.grams },
+                                        perColor: perColor, failed: failed))
+        }
+        // un piatto alla volta: prova l'originale, poi il rimappato
+        func salvage(_ targets: [Int]) -> LoadState {
+            var good: [PlateInfo] = []; var failed: [Int] = []
+            for n in targets {
+                var done = runSlice(file, plate: n)
+                if !done, let r = remapped() { done = runSlice(r, plate: n) }
+                if done, let p = single(n) { good.append(p) } else { failed.append(n) }
+            }
+            note("[piatto per piatto] riusciti: \(good.map { String($0.index) }.joined(separator: ", ")) — falliti: \(failed.map(String.init).joined(separator: ", "))")
+            guard !good.isEmpty else { return .error("sliceFail") }
+            return pack(good, failed: failed)
+        }
+
+        let totalPlates = max(plateCount(file), 1)
+        let targets = sel.isEmpty ? Array(1...totalPlates) : sel.filter { $0 >= 1 }.sorted()
+
+        // sottoinsieme (o piatto singolo): direttamente piatto per piatto
+        if targets.count < totalPlates || targets.count == 1 { return salvage(targets) }
+
+        // tutto il file: originale → rimappato → riadattato (--arrange, come la GUI
+        // al cambio stampante); se l'insieme fallisce, si salva piatto per piatto
+        var ok = runSlice(file)
+        if !ok, let r = remapped() { ok = runSlice(r) }
         if !ok { ok = runSlice(file, arrange: true) }
-        guard ok else { return .error("sliceFail") }
-        let st = analyze(tmp + "/sliced.3mf")
-        // slicing di un piatto solo: l'indice torna quello del progetto,
-        // così le spunte sulle anteprime restano allineate
-        if plate > 0, case .sliced(var a) = st, a.plates.count == 1 {
-            let p = a.plates[0]
-            a.plates = [PlateInfo(index: plate, seconds: p.seconds, grams: p.grams, colorGrams: p.colorGrams)]
-            return .sliced(a)
-        }
-        return st
+        if ok { return analyze(out) }
+        return salvage(targets)
+    }
+
+    /// Numero di piatti dichiarati dal progetto (Metadata/model_settings.config).
+    static func plateCount(_ file: String) -> Int {
+        guard let ms = unzipEntry(file, "Metadata/model_settings.config") else { return 0 }
+        return ms.components(separatedBy: "<plate>").count - 1
     }
 
     /// Slicing di un file mesh singolo (STL/OBJ/STEP) col profilo H2C, mono-materiale PLA Basic.

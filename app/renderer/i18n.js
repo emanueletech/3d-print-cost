@@ -47,6 +47,12 @@
     thSpool: { it: 'Bobina', en: 'Spool', es: 'Bobina', fr: 'Bobine' },
     thUsed: { it: 'Consumato', en: 'Used', es: 'Consumido', fr: 'Consommé' },
     usedColors: { it: 'Colori usati nel progetto', en: 'Colors used in this project', es: 'Colores usados en el proyecto', fr: 'Couleurs utilisées dans le projet' },
+    platesFailed: {
+      it: 'Piatti non slicabili: %@ — aprili in Bambu Studio',
+      en: "Plates that couldn't be sliced: %@ — open them in Bambu Studio",
+      es: 'Placas no laminables: %@ — ábrelas en Bambu Studio',
+      fr: 'Plateaux non découpables : %@ — ouvrez-les dans Bambu Studio',
+    },
     updateAvail: { it: 'È disponibile la versione %@', en: 'Version %@ is available', es: 'La versión %@ está disponible', fr: 'La version %@ est disponible' },
     updateGet: { it: 'Scarica', en: 'Download', es: 'Descargar', fr: 'Télécharger' },
     errGcode: {
