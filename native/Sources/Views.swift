@@ -261,6 +261,14 @@ func gramsLabel(_ g: Double) -> String {
     g < 1000 ? String(format: "%.0f g", g) : String(format: "%.3f kg", g / 1000)
 }
 
+/// Tempo compatto per i badge dei piatti: "45m", "3h20", "12h".
+func shortTime(_ secs: Double) -> String {
+    if secs < 3600 { return "\(max(1, Int((secs / 60).rounded())))m" }
+    let h = Int(secs) / 3600
+    let m = Int(((secs.truncatingRemainder(dividingBy: 3600)) / 60).rounded())
+    return (h >= 10 || m == 0) ? "\(h)h" : String(format: "%dh%02d", h, m)
+}
+
 struct StatCard: View {
     @EnvironmentObject var m: AppModel
     let icon: String; let tint: Color; let k: String; let v: String; var d: String = ""
@@ -607,10 +615,9 @@ struct FileCard: View {
                                             .background(RoundedRectangle(cornerRadius: 9).fill(.black.opacity(0.15)))
                                             .saturation(on ? 1 : 0).opacity(on ? 1 : 0.4)
                                             .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(on ? Color.accentColor.opacity(0.9) : .white.opacity(0.12), lineWidth: on ? 2 : 1))
-                                        // sui piatti con dati la spunta lascia il posto alla quota di tempo del piatto
-                                        if let a = f.analysis, let p = a.plates.first(where: { $0.index == i+1 }), a.seconds > 0 {
-                                            let pct = Int((p.seconds / a.seconds * 100).rounded())
-                                            Text(pct < 1 ? "<1%" : "\(pct)%")
+                                        // sui piatti con dati la spunta lascia il posto al tempo di stampa del piatto
+                                        if let a = f.analysis, let p = a.plates.first(where: { $0.index == i+1 }) {
+                                            Text(shortTime(p.seconds))
                                                 .font(.system(size: 9, weight: .bold)).monospacedDigit()
                                                 .foregroundStyle(on ? Color.accentColor : .white.opacity(0.5))
                                                 .padding(.horizontal, 5).padding(.vertical, 1)

@@ -486,6 +486,14 @@
       </div>`, 'link', 'data-goto="setup"')}`;
   }
 
+  /** tempo compatto per i badge dei piatti: "45m", "3h20", "12h" */
+  function shortTime(secs) {
+    if (secs < 3600) return `${Math.max(1, Math.round(secs / 60))}m`;
+    const h = Math.floor(secs / 3600);
+    const m = Math.round((secs % 3600) / 60);
+    return h >= 10 || m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;
+  }
+
   /* nome dell'app slicer per un motore della famiglia Orca (v1.2) */
   function slicerAppName(engine) {
     return { bambu: 'Bambu Studio', elegoo: 'ElegooSlicer', snapmaker: 'Snapmaker Orca', orca: 'OrcaSlicer' }[engine] || '—';
@@ -564,12 +572,11 @@
                 <img src="${src}" alt=""><span class="tick">${pick ? '+' : ''}</span><span class="idx">${i + 1}</span></button>`;
             }
             const on = !f.excluded.has(i + 1);
-            // sui piatti con dati la spunta lascia il posto alla quota di tempo del piatto
+            // sui piatti con dati la spunta lascia il posto al tempo di stampa del piatto
             let badge = `<span class="tick">${on ? '✓' : ''}</span>`;
             if (dataIdx) {
               const p = f.analysis.plates.find((x) => x.index === i + 1);
-              const pct = totSecs > 0 ? Math.round((100 * p.seconds) / totSecs) : 0;
-              badge = `<span class="pct${on ? '' : ' off'}">${pct < 1 ? '<1' : pct}%</span>`;
+              badge = `<span class="pct${on ? '' : ' off'}">${shortTime(p.seconds)}</span>`;
             }
             return `<button class="thumb${on ? ' on' : ''}" data-plate="${f.id}:${i + 1}">
               <img src="${src}" alt="">${badge}<span class="idx">${i + 1}</span></button>`;
