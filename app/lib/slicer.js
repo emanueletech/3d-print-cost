@@ -178,11 +178,33 @@ function resolveBambu(bambu, spec, nozzle, layer, tmp) {
     names.find((n) => fs.existsSync(path.join(root, sub, `${n}.json`))) || null;
 
   const mach = firstExisting('machine', [`${spec.machine} ${nz} nozzle`]);
-  const proc = firstExisting('process', [
-    `${ly}mm Standard @BBL ${code}${sfx}`,
-    `${ly}mm Standard @BBL ${code}`,
-    `0.20mm Standard @BBL ${code}`,
-  ]);
+  // il processo va cercato tra quelli del SUO ugello: un processo 0.4 con una
+  // macchina 0.8 fa bocciare il CLI ("process not compatible with printer").
+  // Alla pari di layer si preferisce la famiglia Standard; se il layer chiesto
+  // non esiste (es. 0.48 Standard), si prende il più vicino dello stesso ugello.
+  const bestProcess = () => {
+    let names;
+    try {
+      names = fs.readdirSync(path.join(root, 'process'));
+    } catch {
+      return null;
+    }
+    const end = `@BBL ${code}${sfx}.json`;
+    const cands = names.filter((n) => n.endsWith(end));
+    if (!cands.length) return null;
+    const layerOf = (n) => {
+      const m = /^([\d.]+)mm /.exec(n);
+      return m ? parseFloat(m[1]) : null;
+    };
+    const exact = cands.filter((n) => n.startsWith(`${ly}mm `));
+    const pickE = exact.find((n) => n.includes('Standard')) || exact[0];
+    if (pickE) return pickE.slice(0, -5);
+    const scored = cands
+      .map((n) => ({ n, d: layerOf(n) === null ? Infinity : Math.abs(layerOf(n) - layer) }))
+      .sort((a, b) => (a.d !== b.d ? a.d - b.d : (b.n.includes('Standard') ? 1 : 0) - (a.n.includes('Standard') ? 1 : 0)));
+    return scored.length ? scored[0].n.slice(0, -5) : null;
+  };
+  const proc = bestProcess();
   const filB = firstExisting('filament', [
     `Bambu PLA Basic @BBL ${code}${sfx}`,
     `Bambu PLA Basic @BBL ${code}`,

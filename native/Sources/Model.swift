@@ -351,10 +351,32 @@ enum Slicer {
         func firstExisting(_ sub: String, _ names: [String]) -> String? {
             names.first { FileManager.default.fileExists(atPath: "\(root)/\(sub)/\($0).json") }
         }
+        // il processo va cercato tra quelli del SUO ugello: un processo 0.4 con una
+        // macchina 0.8 fa bocciare il CLI ("process not compatible with printer").
+        // Alla pari di layer si preferisce la famiglia Standard; se il layer chiesto
+        // non esiste (es. 0.48 Standard), si prende il più vicino dello stesso ugello.
+        func bestProcess() -> String? {
+            guard let names = try? FileManager.default.contentsOfDirectory(atPath: "\(root)/process") else { return nil }
+            let end = "@BBL \(code)\(sfx).json"
+            let cands = names.filter { $0.hasSuffix(end) }
+            guard !cands.isEmpty else { return nil }
+            func layerOf(_ n: String) -> Double? {
+                guard let r = n.range(of: "mm ") else { return nil }
+                return Double(n[n.startIndex..<r.lowerBound])
+            }
+            let exact = cands.filter { $0.hasPrefix("\(ly)mm ") }
+            if let s = exact.first(where: { $0.contains("Standard") }) ?? exact.first {
+                return String(s.dropLast(5))
+            }
+            let scored = cands.compactMap { n in layerOf(n).map { (n, abs($0 - layer)) } }
+                .sorted {
+                    if $0.1 != $1.1 { return $0.1 < $1.1 }
+                    return $0.0.contains("Standard") && !$1.0.contains("Standard")
+                }
+            return scored.first.map { String($0.0.dropLast(5)) }
+        }
         guard let mach = firstExisting("machine", ["\(spec.machine) \(nz) nozzle"]),
-              let proc = firstExisting("process", ["\(ly)mm Standard @BBL \(code)\(sfx)",
-                                                   "\(ly)mm Standard @BBL \(code)",
-                                                   "0.20mm Standard @BBL \(code)"]),
+              let proc = bestProcess(),
               let filB = firstExisting("filament", ["Bambu PLA Basic @BBL \(code)\(sfx)",
                                                     "Bambu PLA Basic @BBL \(code)",
                                                     "Bambu PLA Basic @base"]),
