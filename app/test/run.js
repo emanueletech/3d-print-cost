@@ -309,5 +309,51 @@ check('una tettoia in sbalzo richiede supporti', () => {
   assert.ok(Math.abs(onBed.contactArea - 400) < 1e-3);
 });
 
+/* ---------- profili per stampante (v1.2): appiattimento inherits ---------- */
+
+console.log('profili');
+const slicer = require('../lib/slicer');
+check('appiattisce la catena inherits e il figlio vince', () => {
+  const dir = path.join(tmp, 'presets');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'base comune.json'), JSON.stringify({
+    name: 'base comune', layer_height: '0.2', wall_loops: '2', ooze_prevention: '1',
+  }));
+  fs.writeFileSync(path.join(dir, 'medio.json'), JSON.stringify({
+    name: 'medio', inherits: 'base comune', wall_loops: '3',
+  }));
+  fs.writeFileSync(path.join(dir, 'foglia @BBL X1C.json'), JSON.stringify({
+    name: 'foglia @BBL X1C', inherits: 'medio', printable_area: ['0x0', '256x0', '256x256', '0x256'],
+  }));
+  const flat = slicer.flattenPreset(dir, 'foglia @BBL X1C', tmp);
+  assert.ok(flat, 'appiattimento riuscito');
+  const obj = JSON.parse(fs.readFileSync(flat, 'utf8'));
+  assert.strictEqual(obj.inherits, undefined, 'inherits rimosso');
+  assert.strictEqual(obj.wall_loops, '3', 'il figlio intermedio vince sulla base');
+  assert.strictEqual(obj.layer_height, '0.2', 'i valori della base sopravvivono');
+  assert.strictEqual(obj.name, 'foglia @BBL X1C', 'il nome resta quello della foglia');
+  assert.ok(Array.isArray(obj.printable_area), 'i campi della foglia ci sono');
+});
+check('catena inherits interrotta → null, senza eccezioni', () => {
+  const dir = path.join(tmp, 'presets');
+  fs.writeFileSync(path.join(dir, 'orfano.json'), JSON.stringify({ name: 'orfano', inherits: 'inesistente' }));
+  assert.strictEqual(slicer.flattenPreset(dir, 'orfano', tmp), null);
+  assert.strictEqual(slicer.flattenPreset(dir, 'mai-esistito', tmp), null);
+});
+check('il rimappato segue il letto della macchina di destinazione', () => {
+  // macchina finta 256×256 senza doppio ugello: offset zero, niente bande
+  const machinePath = path.join(tmp, 'macchina-256.json');
+  fs.writeFileSync(machinePath, JSON.stringify({
+    name: 'Macchina 256', printable_area: ['0x0', '256x0', '256x256', '0x256'], printable_height: '250',
+  }));
+  const src = path.join(tmp, 'per-remap.3mf');
+  const dst = path.join(tmp, 'rimappato-256.3mf');
+  fs.copyFileSync(path.join(tmp, 'progetto.3mf'), src);
+  assert.ok(remap(src, dst, profiles, machinePath), 'remap riuscito');
+  const cfg = JSON.parse(zip.read(dst, 'Metadata/project_settings.config').toString('utf8'));
+  assert.deepStrictEqual(cfg.printable_area, ['0x0', '256x0', '256x256', '0x256'], 'letto della macchina passata');
+  assert.strictEqual(cfg.printable_height, '250', 'altezza della macchina passata');
+});
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${passed} test superati.`);

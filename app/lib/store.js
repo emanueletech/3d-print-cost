@@ -74,15 +74,15 @@ function defaultMaterials() {
 function defaultPrinters() {
   const p = (name, watts, wearPerHour, setupCost = 0.15, slicing = null) =>
     ({ name, watts, wearPerHour, setupCost, slicing });
-  const bbl = (machine) => ({ engine: 'bambu', vendor: 'BBL', machine });
+  const bbl = (machine, code) => ({ engine: 'bambu', vendor: 'BBL', machine, code });
   return [
-    p('Bambu Lab H2C', 180, 0.12, 0.15, bbl('Bambu Lab H2C')),
-    p('Bambu Lab H2D', 180, 0.14, 0.15, bbl('Bambu Lab H2D')),
-    p('Bambu Lab H2D Pro', 200, 0.16, 0.15, bbl('Bambu Lab H2D Pro')),
-    p('Bambu Lab H2S', 160, 0.11, 0.15, bbl('Bambu Lab H2S')),
-    p('Bambu Lab X1C', 110, 0.1, 0.15, bbl('Bambu Lab X1 Carbon')),
-    p('Bambu Lab P1S', 105, 0.06, 0.15, bbl('Bambu Lab P1S')),
-    p('Bambu Lab A1', 80, 0.04, 0.15, bbl('Bambu Lab A1')),
+    p('Bambu Lab H2C', 180, 0.12, 0.15, bbl('Bambu Lab H2C', 'H2C')),
+    p('Bambu Lab H2D', 180, 0.14, 0.15, bbl('Bambu Lab H2D', 'H2D')),
+    p('Bambu Lab H2D Pro', 200, 0.16, 0.15, bbl('Bambu Lab H2D Pro', 'H2DP')),
+    p('Bambu Lab H2S', 160, 0.11, 0.15, bbl('Bambu Lab H2S', 'H2S')),
+    p('Bambu Lab X1C', 110, 0.1, 0.15, bbl('Bambu Lab X1 Carbon', 'X1C')),
+    p('Bambu Lab P1S', 105, 0.06, 0.15, bbl('Bambu Lab P1S', 'P1S')),
+    p('Bambu Lab A1', 80, 0.04, 0.15, bbl('Bambu Lab A1', 'A1')),
     // tool-changer multicolore; media PLA ~150 W (picco 1150 W)
     p('Snapmaker U1', 150, 0.1, 0.15, { engine: 'snapmaker', vendor: 'Snapmaker', machine: 'Snapmaker U1' }),
     p('Elegoo Centauri Carbon', 110, 0.06, 0.15, { engine: 'elegoo', vendor: 'Elegoo', machine: 'Elegoo Centauri Carbon' }),
@@ -193,9 +193,12 @@ function load() {
   // migrazione non distruttiva: aggiunge le stampanti predefinite nuove mancanti
   const have = new Set(s.printers.map((p) => p.name));
   for (const p of defaultPrinters()) if (!have.has(p.name)) s.printers.push(p);
-  // migrazione v1.2: completa il blocco slicing sulle stampanti esistenti (per nome)
+  // migrazione v1.2: completa il blocco slicing sulle stampanti esistenti (per nome),
+  // anche quando manca solo il codice corto aggiunto dopo
   const specs = new Map(defaultPrinters().filter((p) => p.slicing).map((p) => [p.name, p.slicing]));
-  for (const p of s.printers) if (!p.slicing) p.slicing = specs.get(p.name) || null;
+  for (const p of s.printers) {
+    if (!p.slicing || !p.slicing.code) p.slicing = specs.get(p.name) || p.slicing || null;
+  }
   // la voce generica resta sempre in fondo alla lista
   s.printers = [
     ...s.printers.filter((p) => !GENERIC_PRINTERS.has(p.name)),

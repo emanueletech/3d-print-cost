@@ -195,7 +195,7 @@ enum Slicer {
     /// della v1.2; finché mancano si usano i profili H2C 0.4/0.20 in bundle).
     /// `progress`: chiamata prima di ogni piatto nei giri piatto-per-piatto (k, totale).
     static func slice(_ file: String, plates sel: [Int] = [], nozzle: Double = 0.4, layer: Double = 0.20,
-                      progress: ((Int, Int) -> Void)? = nil) -> LoadState {
+                      spec: SlicingSpec? = nil, progress: ((Int, Int) -> Void)? = nil) -> LoadState {
         guard FileManager.default.fileExists(atPath: bambu) else { return .error("noBambu") }
         let res = resourcesDir()
         let prof = res + "/profiles"
@@ -210,19 +210,28 @@ enum Slicer {
         defer { log?.closeFile() }
         func note(_ s: String) { log?.write((s + "\n").data(using: .utf8)!) }
         note(sel.isEmpty ? "=== \(file)" : "=== \(file) (piatti \(sel.map(String.init).joined(separator: ", ")))")
-        if nozzle != 0.4 || layer != 0.20 {
-            note("[setup] ugello \(nozzle) · layer \(layer) — profili dedicati dalla M2 della v1.2, per ora H2C 0.4/0.20")
-        }
 
         let proj = parseProject(file)
+        // profili della stampante selezionata (v1.2 M2): letti da Bambu Studio
+        // e appiattiti; se qualcosa manca si resta sull'H2C in bundle
+        var settings = "\(prof)/machine_H2C_04.json;\(prof)/process_020_H2C.json"
+        var filBasic = prof + "/fil_PLA_Basic_H2C.json"
+        var filMatte = prof + "/fil_PLA_Matte_H2C.json"
+        var machineForRemap: String? = nil
+        if let spec, spec.engine == "bambu",
+           let r = resolveBambu(spec, nozzle: nozzle, layer: layer, tmp: tmp, note: note) {
+            settings = "\(r.machine);\(r.process)"
+            filBasic = r.filBasic; filMatte = r.filMatte
+            machineForRemap = r.machine
+        }
         let fil = (proj.slotTypes.isEmpty ? ["PLA Basic"] : proj.slotTypes)
-            .map { prof + "/" + ($0.contains("Matte") ? "fil_PLA_Matte_H2C.json" : "fil_PLA_Basic_H2C.json") }
+            .map { $0.contains("Matte") ? filMatte : filBasic }
             .joined(separator: ";")
 
         func runSlice(_ src: String, plate: Int = 0, arrange: Bool = false) -> Bool {
             try? FileManager.default.removeItem(atPath: out)   // mai fidarsi dell'export del tentativo precedente
             let args = [
-                "--load-settings", "\(prof)/machine_H2C_04.json;\(prof)/process_020_H2C.json",
+                "--load-settings", settings,
                 "--load-filaments", fil]
                 + (arrange ? ["--arrange", "1"] : [])
                 + ["--slice", "\(plate)", "--debug", "1",
@@ -239,8 +248,10 @@ enum Slicer {
         func remapped() -> String? {
             if let r = remapPath { return r.isEmpty ? nil : r }
             let dst = tmp + "/remapped.3mf"
-            note("$ python3 remap.py (riposizionamento sulla griglia H2C)")
-            let (c, _) = run("/usr/bin/python3", [res + "/remap.py", file, dst], errTo: log)
+            note("$ python3 remap.py (riposizionamento sulla griglia della stampante)")
+            var args = [res + "/remap.py", file, dst]
+            if let mfr = machineForRemap { args.append(mfr) }   // letto di destinazione reale
+            let (c, _) = run("/usr/bin/python3", args, errTo: log)
             note("[exit] \(c)")
             remapPath = (c == 0 && FileManager.default.fileExists(atPath: dst)) ? dst : ""
             return remapPath!.isEmpty ? nil : remapPath
@@ -292,6 +303,83 @@ enum Slicer {
     static func plateCount(_ file: String) -> Int {
         guard let ms = unzipEntry(file, "Metadata/model_settings.config") else { return 0 }
         return ms.components(separatedBy: "<plate>").count - 1
+    }
+
+    // MARK: - Profili per stampante (v1.2 M2): letti da Bambu Studio installato
+
+    /// Radice dell'albero profili BBL dentro Bambu Studio, se installato.
+    static func bambuVendorDir() -> String? {
+        let root = (bambu as NSString).deletingLastPathComponent + "/../Resources/profiles/BBL"
+        let norm = (root as NSString).standardizingPath
+        return FileManager.default.fileExists(atPath: norm + "/machine") ? norm : nil
+    }
+
+    /// Appiattisce un preset seguendo la catena `inherits` nella stessa cartella;
+    /// scrive il risultato in `tmp` e ne restituisce il percorso.
+    static func flattenPreset(dir: String, name: String, into tmp: String, depth: Int = 0) -> String? {
+        guard depth < 12,
+              let data = FileManager.default.contents(atPath: "\(dir)/\(name).json"),
+              var obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        if let parent = obj["inherits"] as? String, !parent.isEmpty {
+            guard let pPath = flattenPreset(dir: dir, name: parent, into: tmp, depth: depth + 1),
+                  let pData = FileManager.default.contents(atPath: pPath),
+                  var merged = try? JSONSerialization.jsonObject(with: pData) as? [String: Any] else { return nil }
+            for (k, v) in obj { merged[k] = v }   // il figlio vince sul padre
+            obj = merged
+        }
+        obj.removeValue(forKey: "inherits")
+        let out = tmp + "/flat-" + name.replacingOccurrences(of: "/", with: "_") + ".json"
+        guard let od = try? JSONSerialization.data(withJSONObject: obj) else { return nil }
+        do { try od.write(to: URL(fileURLWithPath: out)) } catch { return nil }
+        return out
+    }
+
+    struct ResolvedProfiles { var machine: String; var process: String; var filBasic: String; var filMatte: String }
+
+    /// Trova e appiattisce macchina/processo/filamenti per la stampante scelta.
+    /// nil = si resta sui profili H2C in bundle (Bambu Studio assente o profili non trovati).
+    static func resolveBambu(_ spec: SlicingSpec, nozzle: Double, layer: Double,
+                             tmp: String, note: (String) -> Void) -> ResolvedProfiles? {
+        guard let root = bambuVendorDir() else {
+            note("[profili] albero profili di Bambu Studio non trovato: uso H2C in bundle")
+            return nil
+        }
+        let nz = String(format: "%.1f", nozzle)
+        let ly = String(format: "%.2f", layer)
+        let code = spec.code ?? "H2C"
+        let sfx = nozzle == 0.4 ? "" : " \(nz) nozzle"   // i profili 0.4 non hanno suffisso
+        func firstExisting(_ sub: String, _ names: [String]) -> String? {
+            names.first { FileManager.default.fileExists(atPath: "\(root)/\(sub)/\($0).json") }
+        }
+        guard let mach = firstExisting("machine", ["\(spec.machine) \(nz) nozzle"]),
+              let proc = firstExisting("process", ["\(ly)mm Standard @BBL \(code)\(sfx)",
+                                                   "\(ly)mm Standard @BBL \(code)",
+                                                   "0.20mm Standard @BBL \(code)"]),
+              let filB = firstExisting("filament", ["Bambu PLA Basic @BBL \(code)\(sfx)",
+                                                    "Bambu PLA Basic @BBL \(code)",
+                                                    "Bambu PLA Basic @base"]),
+              let filM = firstExisting("filament", ["Bambu PLA Matte @BBL \(code)\(sfx)",
+                                                    "Bambu PLA Matte @BBL \(code)",
+                                                    "Bambu PLA Matte @base"]) else {
+            note("[profili] profili per \(spec.machine) (ugello \(nz), layer \(ly)) non trovati: uso H2C in bundle")
+            return nil
+        }
+        guard let mp = flattenPreset(dir: root + "/machine", name: mach, into: tmp),
+              let pp = flattenPreset(dir: root + "/process", name: proc, into: tmp),
+              let fb = flattenPreset(dir: root + "/filament", name: filB, into: tmp),
+              let fm = flattenPreset(dir: root + "/filament", name: filM, into: tmp) else {
+            note("[profili] appiattimento fallito: uso H2C in bundle")
+            return nil
+        }
+        // stessa cura del profilo in bundle: la ooze prevention del progetto
+        // non deve far bocciare la validazione con la prime tower attiva
+        if let d = FileManager.default.contents(atPath: pp),
+           var obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+            obj["ooze_prevention"] = "0"
+            if let od = try? JSONSerialization.data(withJSONObject: obj) { try? od.write(to: URL(fileURLWithPath: pp)) }
+        }
+        note("[profili] \(mach) · \(proc) · \(filB)")
+        return ResolvedProfiles(machine: mp, process: pp, filBasic: fb, filMatte: fm)
     }
 
     /// Slicing di un file mesh singolo (STL/OBJ/STEP) col profilo H2C, mono-materiale PLA Basic.

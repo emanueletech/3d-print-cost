@@ -561,8 +561,9 @@ final class AppModel: ObservableObject {
         }
         let name = f.name
         let nz = nozzle, lh = layerHeight
+        let spSlicing = selectedPrinter?.slicing
         Task.detached {
-            let st = Slicer.slice(path, plates: sel, nozzle: nz, layer: lh) { k, total in
+            let st = Slicer.slice(path, plates: sel, nozzle: nz, layer: lh, spec: spSlicing) { k, total in
                 // avanzamento piatto per piatto nella barra di lavoro
                 let pct = Int(Double(k - 1) / Double(total) * 100)
                 Task { @MainActor in

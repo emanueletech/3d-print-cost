@@ -126,6 +126,7 @@ struct SlicingSpec: Codable, Hashable {
     var engine: String    // "bambu" | "elegoo" | "snapmaker" | "orca"
     var vendor: String    // cartella vendor nell'albero profili dello slicer (BBL, Elegoo, Snapmaker…)
     var machine: String   // nome base del profilo macchina, senza suffisso ugello
+    var code: String? = nil   // codice corto usato da processi/filamenti ("@BBL X1C")
 }
 
 struct PrinterProfile: Identifiable, Codable, Hashable {
@@ -176,10 +177,11 @@ enum Store {
             // migrazione non distruttiva: aggiunge stampanti predefinite nuove mancanti (per nome)
             let have = Set(s.printers.map { $0.name })
             for p in defaultPrinters() where !have.contains(p.name) { s.printers.append(p) }
-            // migrazione v1.2: completa il blocco slicing sulle stampanti esistenti (per nome)
+            // migrazione v1.2: completa il blocco slicing sulle stampanti esistenti (per nome),
+            // anche quando manca solo il codice corto aggiunto dopo
             let specs = Dictionary(uniqueKeysWithValues: defaultPrinters().compactMap { p in p.slicing.map { (p.name, $0) } })
-            for i in s.printers.indices where s.printers[i].slicing == nil {
-                s.printers[i].slicing = specs[s.printers[i].name]
+            for i in s.printers.indices where s.printers[i].slicing == nil || s.printers[i].slicing?.code == nil {
+                if let spec = specs[s.printers[i].name] { s.printers[i].slicing = spec }
             }
             // tiene la voce generica ("Altra") sempre in fondo
             let generic: Set<String> = ["Altra", "Other", "Otra", "Autre", "—"]
@@ -280,16 +282,16 @@ enum Store {
         func p(_ n: String, _ w: Double, _ wear: Double, _ setup: Double = 0.15, _ spec: SlicingSpec? = nil) -> PrinterProfile {
             PrinterProfile(name: n, watts: w, wearPerHour: wear, setupCost: setup, slicing: spec)
         }
-        func bbl(_ machine: String) -> SlicingSpec { SlicingSpec(engine: "bambu", vendor: "BBL", machine: machine) }
+        func bbl(_ machine: String, _ code: String) -> SlicingSpec { SlicingSpec(engine: "bambu", vendor: "BBL", machine: machine, code: code) }
         // usura oraria stimata = prezzo macchina / vita utile in ore
         return [
-            p("Bambu Lab H2C", 180, 0.12, 0.15, bbl("Bambu Lab H2C")),
-            p("Bambu Lab H2D", 180, 0.14, 0.15, bbl("Bambu Lab H2D")),
-            p("Bambu Lab H2D Pro", 200, 0.16, 0.15, bbl("Bambu Lab H2D Pro")),
-            p("Bambu Lab H2S", 160, 0.11, 0.15, bbl("Bambu Lab H2S")),
-            p("Bambu Lab X1C", 110, 0.10, 0.15, bbl("Bambu Lab X1 Carbon")),
-            p("Bambu Lab P1S", 105, 0.06, 0.15, bbl("Bambu Lab P1S")),
-            p("Bambu Lab A1", 80, 0.04, 0.15, bbl("Bambu Lab A1")),
+            p("Bambu Lab H2C", 180, 0.12, 0.15, bbl("Bambu Lab H2C", "H2C")),
+            p("Bambu Lab H2D", 180, 0.14, 0.15, bbl("Bambu Lab H2D", "H2D")),
+            p("Bambu Lab H2D Pro", 200, 0.16, 0.15, bbl("Bambu Lab H2D Pro", "H2DP")),
+            p("Bambu Lab H2S", 160, 0.11, 0.15, bbl("Bambu Lab H2S", "H2S")),
+            p("Bambu Lab X1C", 110, 0.10, 0.15, bbl("Bambu Lab X1 Carbon", "X1C")),
+            p("Bambu Lab P1S", 105, 0.06, 0.15, bbl("Bambu Lab P1S", "P1S")),
+            p("Bambu Lab A1", 80, 0.04, 0.15, bbl("Bambu Lab A1", "A1")),
             p("Snapmaker U1", 150, 0.10, 0.15,   // tool-changer multicolore; media PLA ~150 W (picco 1150 W)
               SlicingSpec(engine: "snapmaker", vendor: "Snapmaker", machine: "Snapmaker U1")),
             p("Elegoo Centauri Carbon", 110, 0.06, 0.15,

@@ -13,11 +13,33 @@ const zip = require('./zip');
 
 const OLD_SX = 256 * 1.2;
 const OLD_SY = 256 * 1.2;
-const NEW_SX = 330 * 1.2;
-const NEW_SY = 320 * 1.2;
-const OFF_X = (330 - 256) / 2;
-const OFF_Y = (320 - 256) / 2;
 const MARGIN = 40; // gli oggetti possono sporgere un po' dal loro piatto
+
+/** Geometria di destinazione dal profilo macchina (v1.2): letto, griglia, fasce. */
+function targetGeometry(machineJson) {
+  let W = 330;
+  let H = 320;
+  let band = 25;
+  try {
+    const area = machineJson.printable_area || [];
+    const xs = area.map((p) => parseFloat(String(p).split('x')[0])).filter((n) => !Number.isNaN(n));
+    const ys = area.map((p) => parseFloat(String(p).split('x')[1])).filter((n) => !Number.isNaN(n));
+    if (xs.length && ys.length) {
+      W = Math.max(...xs);
+      H = Math.max(...ys);
+    }
+    // fasce laterali riservate: solo sulle macchine a doppio ugello
+    band = machineJson.extruder_printable_area ? 25 : 0;
+  } catch {
+    /* geometria di ripiego H2C */
+  }
+  return {
+    W, H, band,
+    SX: W * 1.2, SY: H * 1.2,
+    OFF_X: Math.max((W - 256) / 2, 0),
+    OFF_Y: Math.max((H - 256) / 2, 0),
+  };
+}
 
 const ENTRY_MODEL = '3D/3dmodel.model';
 const ENTRY_SETTINGS = 'Metadata/project_settings.config';
@@ -52,7 +74,7 @@ function cell(v, stride, sign = 1) {
   return [best, bestLoc];
 }
 
-function remapModel(xml) {
+function remapModel(xml, geo) {
   const start = xml.indexOf('<build');
   const end = xml.indexOf('</build>');
   if (start < 0 || end < 0 || end < start) throw new Error('sezione <build> assente');
@@ -65,35 +87,42 @@ function remapModel(xml) {
       const vals = transform.trim().split(/\s+/);
       const [cx, lx] = cell(parseFloat(vals[9]), OLD_SX);
       const [cy, ly] = cell(parseFloat(vals[10]), OLD_SY, -1);
-      vals[9] = (cx * NEW_SX + OFF_X + lx).toFixed(6);
-      vals[10] = (-(cy * NEW_SY) + OFF_Y + ly).toFixed(6);
+      vals[9] = (cx * geo.SX + geo.OFF_X + lx).toFixed(6);
+      vals[10] = (-(cy * geo.SY) + geo.OFF_Y + ly).toFixed(6);
       return `${head}transform="${vals.join(' ')}"`;
     });
   return xml.slice(0, start) + build + xml.slice(end);
 }
 
-function patchSettings(raw, machineProfile) {
+function patchSettings(raw, machineProfile, geo) {
   const cfg = JSON.parse(raw);
   const mach = JSON.parse(fs.readFileSync(machineProfile, 'utf8'));
   for (const k of MACHINE_KEYS) if (k in mach) cfg[k] = mach[k];
-  // La prime tower viene stampata da entrambi gli ugelli: traslata come gli
-  // oggetti e tenuta fuori dalle bande laterali da 25 mm, altrimenti il
-  // controllo del G-code boccia il piatto ("found gcode unprintable").
+  // La prime tower viene stampata da tutti gli ugelli: traslata come gli
+  // oggetti e tenuta nell'area raggiungibile, altrimenti il controllo del
+  // G-code boccia il piatto ("found gcode unprintable").
+  const towerW = 60;
+  const xLo = geo.band + 1;
+  const xHi = Math.max(geo.band + 2, geo.W - geo.band - towerW - 2);
+  const yLo = 5;
+  const yHi = Math.max(10, geo.H - 65);
   const shift = (key, off, lo, hi) => {
     const clamp = (x) => String(Math.round(Math.min(Math.max(parseFloat(x) + off, lo), hi) * 1000) / 1000);
     if (Array.isArray(cfg[key])) cfg[key] = cfg[key].map(clamp);
     else if (cfg[key] != null) cfg[key] = clamp(cfg[key]);
   };
-  shift('wipe_tower_x', OFF_X, 26, 244); // 330 - 25 di banda - 60 di torre
-  shift('wipe_tower_y', OFF_Y, 5, 255);
+  shift('wipe_tower_x', geo.OFF_X, xLo, xHi);
+  shift('wipe_tower_y', geo.OFF_Y, yLo, yHi);
   return JSON.stringify(cfg, null, 4);
 }
 
 /**
  * Scrive in `dst` la copia rimappata di `src`.
+ * `machinePath` (v1.2): profilo macchina di destinazione già appiattito;
+ * senza, si usa l'H2C in bundle come sempre.
  * @returns true se il rimappaggio è riuscito.
  */
-function remap(src, dst, profilesDir) {
+function remap(src, dst, profilesDir, machinePath) {
   try {
     const entries = zip.list(src);
     if (!entries.length) return false;
@@ -103,10 +132,11 @@ function remap(src, dst, profilesDir) {
     );
     if (!raw[ENTRY_MODEL] || !raw[ENTRY_SETTINGS]) return false;
 
-    const machine = path.join(profilesDir, 'machine_H2C_04.json');
-    raw[ENTRY_MODEL] = Buffer.from(remapModel(raw[ENTRY_MODEL].toString('utf8')), 'utf8');
+    const machine = machinePath || path.join(profilesDir, 'machine_H2C_04.json');
+    const geo = targetGeometry(JSON.parse(fs.readFileSync(machine, 'utf8')));
+    raw[ENTRY_MODEL] = Buffer.from(remapModel(raw[ENTRY_MODEL].toString('utf8'), geo), 'utf8');
     raw[ENTRY_SETTINGS] = Buffer.from(
-      patchSettings(raw[ENTRY_SETTINGS].toString('utf8'), machine),
+      patchSettings(raw[ENTRY_SETTINGS].toString('utf8'), machine, geo),
       'utf8'
     );
 

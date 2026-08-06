@@ -124,6 +124,95 @@ function settingsArg(profilesDir) {
   return `${path.join(profilesDir, 'machine_H2C_04.json')};${path.join(profilesDir, 'process_020_H2C.json')}`;
 }
 
+/* ---------- profili per stampante (v1.2 M2): letti da Bambu Studio ---------- */
+
+/** Radice dell'albero profili BBL dentro l'installazione di Bambu Studio. */
+function bambuVendorDir(bambu) {
+  const cands =
+    process.platform === 'darwin'
+      ? [path.join(path.dirname(bambu), '..', 'Resources', 'profiles', 'BBL')]
+      : [
+          path.join(path.dirname(bambu), 'resources', 'profiles', 'BBL'),
+          path.join(path.dirname(bambu), '..', 'resources', 'profiles', 'BBL'),
+        ];
+  for (const c of cands) if (fs.existsSync(path.join(c, 'machine'))) return c;
+  return null;
+}
+
+/** Appiattisce un preset seguendo `inherits` nella stessa cartella; scrive in tmp. */
+function flattenPreset(dir, name, tmp, depth = 0) {
+  if (depth >= 12) return null;
+  let obj;
+  try {
+    obj = JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`), 'utf8'));
+  } catch {
+    return null;
+  }
+  if (obj.inherits) {
+    const parentPath = flattenPreset(dir, obj.inherits, tmp, depth + 1);
+    if (!parentPath) return null;
+    const merged = JSON.parse(fs.readFileSync(parentPath, 'utf8'));
+    Object.assign(merged, obj); // il figlio vince sul padre
+    obj = merged;
+  }
+  delete obj.inherits;
+  const out = path.join(tmp, `flat-${name.replace(/[\\/]/g, '_')}.json`);
+  try {
+    fs.writeFileSync(out, JSON.stringify(obj));
+  } catch {
+    return null;
+  }
+  return out;
+}
+
+/** Trova e appiattisce macchina/processo/filamenti per la stampante scelta.
+ *  null = si resta sui profili H2C in bundle. */
+function resolveBambu(bambu, spec, nozzle, layer, tmp) {
+  const root = bambuVendorDir(bambu);
+  if (!root) return null;
+  const nz = nozzle.toFixed(1);
+  const ly = layer.toFixed(2);
+  const code = spec.code || 'H2C';
+  const sfx = nozzle === 0.4 ? '' : ` ${nz} nozzle`; // i profili 0.4 non hanno suffisso
+  const firstExisting = (sub, names) =>
+    names.find((n) => fs.existsSync(path.join(root, sub, `${n}.json`))) || null;
+
+  const mach = firstExisting('machine', [`${spec.machine} ${nz} nozzle`]);
+  const proc = firstExisting('process', [
+    `${ly}mm Standard @BBL ${code}${sfx}`,
+    `${ly}mm Standard @BBL ${code}`,
+    `0.20mm Standard @BBL ${code}`,
+  ]);
+  const filB = firstExisting('filament', [
+    `Bambu PLA Basic @BBL ${code}${sfx}`,
+    `Bambu PLA Basic @BBL ${code}`,
+    'Bambu PLA Basic @base',
+  ]);
+  const filM = firstExisting('filament', [
+    `Bambu PLA Matte @BBL ${code}${sfx}`,
+    `Bambu PLA Matte @BBL ${code}`,
+    'Bambu PLA Matte @base',
+  ]);
+  if (!mach || !proc || !filB || !filM) return null;
+
+  const machine = flattenPreset(path.join(root, 'machine'), mach, tmp);
+  const procFlat = flattenPreset(path.join(root, 'process'), proc, tmp);
+  const filBasic = flattenPreset(path.join(root, 'filament'), filB, tmp);
+  const filMatte = flattenPreset(path.join(root, 'filament'), filM, tmp);
+  if (!machine || !procFlat || !filBasic || !filMatte) return null;
+
+  // stessa cura del profilo in bundle: la ooze prevention del progetto
+  // non deve far bocciare la validazione con la prime tower attiva
+  try {
+    const p = JSON.parse(fs.readFileSync(procFlat, 'utf8'));
+    p.ooze_prevention = '0';
+    fs.writeFileSync(procFlat, JSON.stringify(p));
+  } catch {
+    /* il profilo resta com'è */
+  }
+  return { machine, process: procFlat, filBasic, filMatte, names: `${mach} · ${proc}` };
+}
+
 /** Numero di piatti dichiarati dal progetto (Metadata/model_settings.config). */
 function plateCount(file) {
   try {
@@ -138,21 +227,39 @@ function plateCount(file) {
  *  griglia H2C e salvataggio piatto-per-piatto: un piatto guasto non fa più
  *  fallire l'intero file, finisce nell'elenco `failed` del risultato.
  *  `plates`: piatti richiesti (numerazione del progetto); vuoto = tutti.
+ *  `spec`/`nozzle`/`layerHeight` (v1.2): stampante selezionata e setup di slicing.
  *  `onProgress(k, totale)`: chiamata prima di ogni piatto nei giri piatto-per-piatto. */
-async function slice(file, { profilesDir, bambuPath, plates = [], onProgress } = {}) {
+async function slice(file, { profilesDir, bambuPath, plates = [], spec = null, nozzle = 0.4, layerHeight = 0.2, onProgress } = {}) {
   const bambu = findBambu(bambuPath);
   if (!bambu) return { error: 'noBambu' };
 
   const tmp = tempDir('printcost-slice-');
   try {
     const proj = threemf.parseProject(file);
-    const fil = filamentProfiles(proj.slotTypes, profilesDir);
     const outFile = path.join(tmp, 'sliced.3mf');
+
+    // profili della stampante selezionata (v1.2 M2); ripiego sull'H2C in bundle
+    let settings = settingsArg(profilesDir);
+    let filBasic = path.join(profilesDir, 'fil_PLA_Basic_H2C.json');
+    let filMatte = path.join(profilesDir, 'fil_PLA_Matte_H2C.json');
+    let machineForRemap = null;
+    if (spec && spec.engine === 'bambu') {
+      const r = resolveBambu(bambu, spec, nozzle, layerHeight, tmp);
+      if (r) {
+        settings = `${r.machine};${r.process}`;
+        filBasic = r.filBasic;
+        filMatte = r.filMatte;
+        machineForRemap = r.machine;
+      }
+    }
+    const fil = (proj.slotTypes && proj.slotTypes.length ? proj.slotTypes : ['PLA Basic'])
+      .map((t) => (/matte/i.test(t) ? filMatte : filBasic))
+      .join(';');
 
     const attempt = async (src, { plate = 0, arrange = false } = {}) => {
       fs.rmSync(outFile, { force: true }); // mai fidarsi dell'export del tentativo precedente
       const ok = await run(bambu, [
-        '--load-settings', settingsArg(profilesDir),
+        '--load-settings', settings,
         '--load-filaments', fil,
         ...(arrange ? ['--arrange', '1'] : []),
         '--slice', String(plate), '--debug', '1',
@@ -165,7 +272,8 @@ async function slice(file, { profilesDir, bambuPath, plates = [], onProgress } =
     const remappedFile = path.join(tmp, 'remapped.3mf');
     let remapState;
     const remapped = () => {
-      if (remapState === undefined) remapState = remap(file, remappedFile, profilesDir) ? remappedFile : null;
+      if (remapState === undefined)
+        remapState = remap(file, remappedFile, profilesDir, machineForRemap) ? remappedFile : null;
       return remapState;
     };
 
@@ -262,4 +370,4 @@ async function stepToSTL(file, { bambuPath } = {}) {
   return path.join(outdir, stl); // ripulito dal chiamante
 }
 
-module.exports = { findBambu, slice, sliceRaw, stepToSTL, cleanup };
+module.exports = { findBambu, slice, sliceRaw, stepToSTL, cleanup, flattenPreset, bambuVendorDir };

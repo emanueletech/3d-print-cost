@@ -34,7 +34,16 @@ function profilesDir() {
   return path.join(resourcesDir(), 'profiles');
 }
 function slicerOpts() {
-  return { profilesDir: profilesDir(), bambuPath: state && state.bambuPath ? state.bambuPath : '' };
+  const printers = (state && state.printers) || [];
+  const sel = printers.find((p) => p.name === state.selPrinter) || printers[0] || {};
+  return {
+    profilesDir: profilesDir(),
+    bambuPath: state && state.bambuPath ? state.bambuPath : '',
+    // stampante selezionata e setup di slicing (v1.2)
+    spec: sel.slicing || null,
+    nozzle: (state && state.nozzle) || 0.4,
+    layerHeight: (state && state.layerHeight) || 0.2,
+  };
 }
 
 /* ---------- stato ---------- */
