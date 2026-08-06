@@ -475,7 +475,30 @@ struct FilesView: View {
     @EnvironmentObject var m: AppModel
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(m.t("sFiles")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+            // testo e comandi seguono la stampante selezionata (v1.2)
+            let spec = m.selectedPrinter?.slicing
+            let isBambu = spec == nil || spec!.engine == "bambu"
+            if isBambu {
+                Text(String(format: m.t("sFilesBambu"),
+                            String(format: "%.1f", m.nozzle), String(format: "%.2f", m.layerHeight)))
+                    .foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+                HStack(spacing: 16) {
+                    Picker(m.t("lblNozzle"), selection: $m.nozzle) {
+                        ForEach([0.2, 0.4, 0.6, 0.8], id: \.self) { Text(String(format: "%.1f mm", $0)).tag($0) }
+                    }.pickerStyle(.menu).fixedSize()
+                    Picker(m.t("lblLayer"), selection: $m.layerHeight) {
+                        ForEach(Self.layerChoices(m.nozzle), id: \.self) { Text(String(format: "%.2f mm", $0)).tag($0) }
+                    }.pickerStyle(.menu).fixedSize()
+                    Spacer()
+                }
+                .onChange(of: m.nozzle) { _, nz in
+                    if !Self.layerChoices(nz).contains(m.layerHeight) { m.layerHeight = Self.defaultLayer(nz) }
+                }
+            } else {
+                Text(String(format: m.t("sFilesExport"),
+                            m.selectedPrinter?.name ?? "—", m.slicerAppName(spec!.engine)))
+                    .foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+            }
             Button { pick() } label: {
                 HStack(spacing: 10) { Image(systemName: "square.and.arrow.down.on.square"); Text(m.t("dropHere")) }
                     .frame(maxWidth: .infinity).padding(.vertical, 26).foregroundStyle(.secondary)
@@ -494,6 +517,23 @@ struct FilesView: View {
         let p = NSOpenPanel(); p.allowedContentTypes = [UTType("com.microsoft.3mf") ?? .data]
         p.allowsMultipleSelection = true; p.canChooseFiles = true
         if p.runModal() == .OK { m.add(paths: p.urls.map { $0.path }) }
+    }
+    /// altezze layer sensate per ugello (passo tipico della famiglia Orca)
+    static func layerChoices(_ nozzle: Double) -> [Double] {
+        switch nozzle {
+        case 0.2: return [0.06, 0.08, 0.10, 0.12, 0.14]
+        case 0.6: return [0.18, 0.24, 0.30, 0.36, 0.42]
+        case 0.8: return [0.24, 0.32, 0.40, 0.48, 0.56]
+        default:  return [0.08, 0.12, 0.16, 0.20, 0.24, 0.28]
+        }
+    }
+    static func defaultLayer(_ nozzle: Double) -> Double {
+        switch nozzle {
+        case 0.2: return 0.10
+        case 0.6: return 0.30
+        case 0.8: return 0.40
+        default:  return 0.20
+        }
     }
 }
 
@@ -975,6 +1015,7 @@ struct PrintersView: View {
                     HStack {
                         Text("").frame(width: 30)
                         Text(m.t("pName")).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(m.t("pSlicer")).frame(width: 190, alignment: .leading)
                         Text(m.t("pWatts")).frame(width: 80, alignment: .trailing)
                         Text(m.t("pWear")).frame(width: 90, alignment: .trailing)
                         Text(m.t("pSetup")).frame(width: 80, alignment: .trailing)
@@ -986,6 +1027,17 @@ struct PrintersView: View {
                                 Image(systemName: m.selPrinterID == p.id ? "largecircle.fill.circle" : "circle").foregroundStyle(m.selPrinterID == p.id ? Color.accentColor : .secondary)
                             }.buttonStyle(.plain).frame(width: 30).help(m.t("selected"))
                             TextField("", text: $p.name).textFieldStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
+                            // badge slicer (v1.2): con chi slica questa stampante
+                            Group {
+                                if let spec = p.slicing {
+                                    Text(spec.engine == "bambu" ? m.slicerAppName(spec.engine)
+                                         : "\(m.slicerAppName(spec.engine)) · \(m.t("expOnly"))")
+                                } else {
+                                    Text("—")
+                                }
+                            }
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .lineLimit(1).frame(width: 190, alignment: .leading)
                             TextField("", value: $p.watts, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 80)
                             TextField("", value: $p.wearPerHour, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 90)
                             TextField("", value: $p.setupCost, format: .number).textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width: 80)

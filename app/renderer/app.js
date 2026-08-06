@@ -345,6 +345,10 @@
       for (let i = 1; i <= file.thumbs.length; i++) if (!file.excluded.has(i)) sel.push(i);
     }
     setBusy(fmt(t('busy'), file.name));
+    // stampante non Bambu selezionata: i numeri escono comunque dal profilo H2C — dirlo subito
+    const spSpec = selectedPrinter().slicing;
+    if (spSpec && spSpec.engine !== 'bambu')
+      toast(fmt(t('sliceOtherNote'), selectedPrinter().name, slicerAppName(spSpec.engine)));
     M.busyName = file.name;
     const res = await api.slice(file.path, sel);
     M.busyName = null;
@@ -482,6 +486,18 @@
       </div>`, 'link', 'data-goto="setup"')}`;
   }
 
+  /* nome dell'app slicer per un motore della famiglia Orca (v1.2) */
+  function slicerAppName(engine) {
+    return { bambu: 'Bambu Studio', elegoo: 'ElegooSlicer', snapmaker: 'Snapmaker Orca', orca: 'OrcaSlicer' }[engine] || '—';
+  }
+  const LAYERS_BY_NOZZLE = {
+    0.2: [0.06, 0.08, 0.1, 0.12, 0.14],
+    0.4: [0.08, 0.12, 0.16, 0.2, 0.24, 0.28],
+    0.6: [0.18, 0.24, 0.3, 0.36, 0.42],
+    0.8: [0.24, 0.32, 0.4, 0.48, 0.56],
+  };
+  const DEFAULT_LAYER = { 0.2: 0.1, 0.4: 0.2, 0.6: 0.3, 0.8: 0.4 };
+
   function viewFiles() {
     const banner = M.bambu
       ? ''
@@ -492,7 +508,23 @@
       ? M.files.map(fileCard).join('')
       : card(`<div class="empty">${esc(t('noFiles'))}</div>`);
 
-    return `<div class="sub">${esc(t('sFiles'))}</div>
+    // testo e comandi seguono la stampante selezionata (v1.2)
+    const spec = selectedPrinter().slicing;
+    const isBambu = !spec || spec.engine === 'bambu';
+    let sub;
+    let cfg = '';
+    if (isBambu) {
+      sub = fmt(t('sFilesBambu'), M.store.nozzle.toFixed(1), M.store.layerHeight.toFixed(2));
+      const opt = (vals, cur, fix) => vals.map((v) => `<option value="${v}"${v === cur ? ' selected' : ''}>${v.toFixed(fix)} mm</option>`).join('');
+      cfg = `<div class="toolbar slcfg">
+        <label>${esc(t('lblNozzle'))} <select data-slcfg="nozzle">${opt([0.2, 0.4, 0.6, 0.8], M.store.nozzle, 1)}</select></label>
+        <label>${esc(t('lblLayer'))} <select data-slcfg="layerHeight">${opt(LAYERS_BY_NOZZLE[M.store.nozzle] || LAYERS_BY_NOZZLE[0.4], M.store.layerHeight, 2)}</select></label>
+      </div>`;
+    } else {
+      sub = fmt(t('sFilesExport'), selectedPrinter().name, slicerAppName(spec.engine));
+    }
+
+    return `<div class="sub">${esc(sub)}</div>${cfg}
       ${banner}
       <button class="drop" data-act="pick3mf">⬇︎ ${esc(t('dropHere'))}</button>
       <div class="stack">${cards}</div>`;
@@ -689,6 +721,7 @@
         (p, i) => `<tr>
         <td><button class="radio${M.store.selPrinter === p.name ? ' on' : ''}" data-selprinter="${i}" title="${esc(t('selected'))}"></button></td>
         <td><input type="text" data-prn="${i}:name" value="${esc(p.name)}"></td>
+        <td class="dim">${p.slicing ? esc(p.slicing.engine === 'bambu' ? slicerAppName(p.slicing.engine) : `${slicerAppName(p.slicing.engine)} · ${t('expOnly')}`) : '—'}</td>
         <td class="n"><input type="number" step="5" class="w80 r" data-prn="${i}:watts" data-num="1" value="${esc(p.watts)}"></td>
         <td class="n"><input type="number" step="0.01" class="w80 r" data-prn="${i}:wearPerHour" data-num="1" value="${esc(p.wearPerHour)}"></td>
         <td class="n"><input type="number" step="0.05" class="w80 r" data-prn="${i}:setupCost" data-num="1" value="${esc(p.setupCost)}"></td>
@@ -703,6 +736,7 @@
         <span class="spacer"></span><span class="note">${esc(t('wearHint'))}</span>
       </div>
       ${card(`<table class="tbl edit"><thead><tr><th></th><th>${esc(t('pName'))}</th>
+        <th>${esc(t('pSlicer'))}</th>
         <th class="n">${esc(t('pWatts'))}</th><th class="n">${esc(t('pWear'))}</th>
         <th class="n">${esc(t('pSetup'))}</th><th></th></tr></thead><tbody>${rows}</tbody></table>`, 'pad0')}`;
   }
@@ -1205,6 +1239,18 @@
 
     document.addEventListener('change', (e) => {
       const el = e.target;
+
+      // selettore ugello/layer dello slicing integrato (v1.2)
+      const slcfg = el.getAttribute('data-slcfg');
+      if (slcfg) {
+        M.store[slcfg] = parseFloat(el.value);
+        if (slcfg === 'nozzle') {
+          const layers = LAYERS_BY_NOZZLE[M.store.nozzle] || LAYERS_BY_NOZZLE[0.4];
+          if (!layers.includes(M.store.layerHeight)) M.store.layerHeight = DEFAULT_LAYER[M.store.nozzle] || 0.2;
+        }
+        persist();
+        return render();
+      }
 
       const preset = el.getAttribute('data-preset');
       if (preset) {

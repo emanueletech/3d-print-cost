@@ -191,8 +191,11 @@ enum Slicer {
     /// sulla griglia e salvataggio piatto-per-piatto: un piatto guasto non fa più
     /// fallire l'intero file, viene solo segnalato in `FileAnalysis.failed`.
     /// `sel`: piatti richiesti (numerazione del progetto); vuoto = tutti.
+    /// `nozzle`/`layer`: scelta ugello e altezza layer (i profili dedicati arrivano con la M2
+    /// della v1.2; finché mancano si usano i profili H2C 0.4/0.20 in bundle).
     /// `progress`: chiamata prima di ogni piatto nei giri piatto-per-piatto (k, totale).
-    static func slice(_ file: String, plates sel: [Int] = [], progress: ((Int, Int) -> Void)? = nil) -> LoadState {
+    static func slice(_ file: String, plates sel: [Int] = [], nozzle: Double = 0.4, layer: Double = 0.20,
+                      progress: ((Int, Int) -> Void)? = nil) -> LoadState {
         guard FileManager.default.fileExists(atPath: bambu) else { return .error("noBambu") }
         let res = resourcesDir()
         let prof = res + "/profiles"
@@ -207,6 +210,9 @@ enum Slicer {
         defer { log?.closeFile() }
         func note(_ s: String) { log?.write((s + "\n").data(using: .utf8)!) }
         note(sel.isEmpty ? "=== \(file)" : "=== \(file) (piatti \(sel.map(String.init).joined(separator: ", ")))")
+        if nozzle != 0.4 || layer != 0.20 {
+            note("[setup] ugello \(nozzle) · layer \(layer) — profili dedicati dalla M2 della v1.2, per ora H2C 0.4/0.20")
+        }
 
         let proj = parseProject(file)
         let fil = (proj.slotTypes.isEmpty ? ["PLA Basic"] : proj.slotTypes)

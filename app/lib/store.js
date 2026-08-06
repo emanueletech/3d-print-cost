@@ -68,18 +68,25 @@ function defaultMaterials() {
   ];
 }
 
-// usura oraria stimata = prezzo macchina / vita utile in ore
+// usura oraria stimata = prezzo macchina / vita utile in ore.
+// slicing = come si slica per questa stampante (v1.2): motore della famiglia Orca,
+// cartella vendor nell'albero profili e nome base del profilo macchina.
 function defaultPrinters() {
-  const p = (name, watts, wearPerHour, setupCost = 0.15) => ({ name, watts, wearPerHour, setupCost });
+  const p = (name, watts, wearPerHour, setupCost = 0.15, slicing = null) =>
+    ({ name, watts, wearPerHour, setupCost, slicing });
+  const bbl = (machine) => ({ engine: 'bambu', vendor: 'BBL', machine });
   return [
-    p('Bambu Lab H2C', 180, 0.12),
-    p('Bambu Lab H2D', 180, 0.14),
-    p('Bambu Lab H2D Pro', 200, 0.16),
-    p('Bambu Lab H2S', 160, 0.11),
-    p('Bambu Lab X1C', 110, 0.1),
-    p('Bambu Lab P1S', 105, 0.06),
-    p('Bambu Lab A1', 80, 0.04),
-    p('Snapmaker U1', 150, 0.1), // tool-changer multicolore; media PLA ~150 W (picco 1150 W)
+    p('Bambu Lab H2C', 180, 0.12, 0.15, bbl('Bambu Lab H2C')),
+    p('Bambu Lab H2D', 180, 0.14, 0.15, bbl('Bambu Lab H2D')),
+    p('Bambu Lab H2D Pro', 200, 0.16, 0.15, bbl('Bambu Lab H2D Pro')),
+    p('Bambu Lab H2S', 160, 0.11, 0.15, bbl('Bambu Lab H2S')),
+    p('Bambu Lab X1C', 110, 0.1, 0.15, bbl('Bambu Lab X1 Carbon')),
+    p('Bambu Lab P1S', 105, 0.06, 0.15, bbl('Bambu Lab P1S')),
+    p('Bambu Lab A1', 80, 0.04, 0.15, bbl('Bambu Lab A1')),
+    // tool-changer multicolore; media PLA ~150 W (picco 1150 W)
+    p('Snapmaker U1', 150, 0.1, 0.15, { engine: 'snapmaker', vendor: 'Snapmaker', machine: 'Snapmaker U1' }),
+    p('Elegoo Centauri Carbon', 110, 0.06, 0.15, { engine: 'elegoo', vendor: 'Elegoo', machine: 'Elegoo Centauri Carbon' }),
+    p('Elegoo Neptune 4 Pro', 95, 0.04, 0.15, { engine: 'elegoo', vendor: 'Elegoo', machine: 'Elegoo Neptune 4 Pro' }),
     p('Altra', 120, 0.08),
   ];
 }
@@ -165,6 +172,8 @@ function emptyState() {
     otherBrand: 'Generico',
     otherPrice: 20.0,
     selPrinter: null,
+    nozzle: 0.4,       // slicing integrato (v1.2): ugello scelto
+    layerHeight: 0.2,  // e altezza layer
   };
 }
 
@@ -184,6 +193,9 @@ function load() {
   // migrazione non distruttiva: aggiunge le stampanti predefinite nuove mancanti
   const have = new Set(s.printers.map((p) => p.name));
   for (const p of defaultPrinters()) if (!have.has(p.name)) s.printers.push(p);
+  // migrazione v1.2: completa il blocco slicing sulle stampanti esistenti (per nome)
+  const specs = new Map(defaultPrinters().filter((p) => p.slicing).map((p) => [p.name, p.slicing]));
+  for (const p of s.printers) if (!p.slicing) p.slicing = specs.get(p.name) || null;
   // la voce generica resta sempre in fondo alla lista
   s.printers = [
     ...s.printers.filter((p) => !GENERIC_PRINTERS.has(p.name)),

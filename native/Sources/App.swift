@@ -39,6 +39,22 @@ enum Loc {
                    "en":"Already-sliced 3mf (from any slicer) are read instantly. In-app slicing always uses Bambu Studio with the H2C profile: the printer picked above only affects costs.",
                    "es":"Los 3mf ya laminados (de cualquier laminador) se leen al instante. El laminado desde la app usa siempre Bambu Studio con el perfil H2C: la impresora elegida solo afecta a los costes.",
                    "fr":"Les 3mf déjà découpés (de n'importe quel slicer) sont lus instantanément. La découpe depuis l'app utilise toujours Bambu Studio avec le profil H2C : l'imprimante choisie n'influe que sur les coûts."],
+        "sFilesBambu": ["it":"I 3mf già slicati (di qualsiasi slicer) vengono letti al volo. Slicing integrato con Bambu Studio: ugello %@ mm, layer %@ mm.",
+                        "en":"Already-sliced 3mf (from any slicer) are read instantly. In-app slicing with Bambu Studio: %@ mm nozzle, %@ mm layer.",
+                        "es":"Los 3mf ya laminados (de cualquier laminador) se leen al instante. Laminado integrado con Bambu Studio: boquilla de %@ mm, capa de %@ mm.",
+                        "fr":"Les 3mf déjà découpés (de n'importe quel slicer) sont lus instantanément. Découpe intégrée avec Bambu Studio : buse %@ mm, couche %@ mm."],
+        "sFilesExport": ["it":"I 3mf già slicati (di qualsiasi slicer) vengono letti al volo. Per %@ lo slicing integrato non è ancora disponibile: slica in %@ ed esporta il «file del piatto slicato» — l'app lo legge subito.",
+                         "en":"Already-sliced 3mf (from any slicer) are read instantly. In-app slicing isn't available for %@ yet: slice in %@ and export the \u{201C}plate sliced file\u{201D} — the app reads it right away.",
+                         "es":"Los 3mf ya laminados (de cualquier laminador) se leen al instante. El laminado integrado aún no está disponible para %@: lamina en %@ y exporta el «archivo de placa laminado» — la app lo lee al momento.",
+                         "fr":"Les 3mf déjà découpés (de n'importe quel slicer) sont lus instantanément. La découpe intégrée n'est pas encore disponible pour %@ : découpez dans %@ et exportez le « fichier de plateau découpé » — l'app le lit aussitôt."],
+        "sliceOtherNote": ["it":"Numeri calcolati col profilo Bambu H2C: per %@ slica in %@ ed esporta il 3mf per i consumi veri.",
+                           "en":"Figures computed with the Bambu H2C profile: for %@, slice in %@ and export the 3mf for true usage.",
+                           "es":"Cifras calculadas con el perfil Bambu H2C: para %@, lamina en %@ y exporta el 3mf para consumos reales.",
+                           "fr":"Chiffres calculés avec le profil Bambu H2C : pour %@, découpez dans %@ et exportez le 3mf pour la consommation réelle."],
+        "lblNozzle": ["it":"Ugello","en":"Nozzle","es":"Boquilla","fr":"Buse"],
+        "lblLayer": ["it":"Layer","en":"Layer","es":"Capa","fr":"Couche"],
+        "expOnly": ["it":"solo lettura export","en":"export reading only","es":"solo lectura de export","fr":"lecture d'export seule"],
+        "pSlicer": ["it":"Slicer","en":"Slicer","es":"Laminador","fr":"Slicer"],
         "selAll": ["it":"Tutti","en":"All","es":"Todas","fr":"Tous"],
         "selNone": ["it":"Nessuno","en":"None","es":"Ninguna","fr":"Aucun"],
         "plateMoreHint": ["it":"I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.",
@@ -283,10 +299,15 @@ final class AppModel: ObservableObject {
     @Published var printersDB: [PrinterProfile] = [] { didSet { persist() } }
     @Published var selPrinterID: UUID? { didSet { if let p = selectedPrinter { watts = p.watts }; persist() } }
     @Published var failurePct: Double = 7 { didSet { persist() } }
+    // slicing integrato: ugello e altezza layer scelti (v1.2)
+    @Published var nozzle: Double = 0.4 { didSet { persist() } }
+    @Published var layerHeight: Double = 0.20 { didSet { persist() } }
 
     init() {
         let s = Store.load()
         materials = s.materials; printersDB = s.printers; failurePct = s.failurePct; kwh = s.kwh
+        nozzle = s.nozzle ?? 0.4
+        layerHeight = s.layerHeight ?? 0.20
         currency = Currency(rawValue: s.currency ?? "eur") ?? .eur
         eurRate = s.eurRate ?? currency.defaultRate
         Money.currency = currency; Money.rate = eurRate
@@ -320,9 +341,21 @@ final class AppModel: ObservableObject {
         // evita salvataggi durante l'init
         guard !materials.isEmpty || !printersDB.isEmpty else { return }
         Store.save(StoreData(materials: materials, printers: printersDB, failurePct: failurePct, kwh: kwh,
-                             currency: currency.rawValue, eurRate: eurRate, amazonTag: nil))
+                             currency: currency.rawValue, eurRate: eurRate, amazonTag: nil,
+                             nozzle: nozzle, layerHeight: layerHeight))
     }
     var selectedPrinter: PrinterProfile? { printersDB.first { $0.id == selPrinterID } ?? printersDB.first }
+
+    /// Nome dell'app slicer per un motore della famiglia Orca.
+    func slicerAppName(_ engine: String) -> String {
+        switch engine {
+        case "bambu": return "Bambu Studio"
+        case "elegoo": return "ElegooSlicer"
+        case "snapmaker": return "Snapmaker Orca"
+        case "orca": return "OrcaSlicer"
+        default: return "—"
+        }
+    }
 
     /// materiale associato a un colore del progetto (per costo consumato a €/kg):
     /// match esatto sull'hex, altrimenti il colore più vicino (entro soglia), altrimenti nil.
@@ -521,9 +554,15 @@ final class AppModel: ObservableObject {
             sel = total > 0 ? (1...total).filter { !f.excluded.contains($0) } : []
         }
         busy = String(format: t("busy"), f.name)
+        // stampante non Bambu selezionata: i numeri escono comunque dal profilo H2C —
+        // meglio dirlo subito, coi consumi veri che passano dall'export del suo slicer
+        if let sp = selectedPrinter, let spec = sp.slicing, spec.engine != "bambu" {
+            flashText(String(format: t("sliceOtherNote"), sp.name, slicerAppName(spec.engine)))
+        }
         let name = f.name
+        let nz = nozzle, lh = layerHeight
         Task.detached {
-            let st = Slicer.slice(path, plates: sel) { k, total in
+            let st = Slicer.slice(path, plates: sel, nozzle: nz, layer: lh) { k, total in
                 // avanzamento piatto per piatto nella barra di lavoro
                 let pct = Int(Double(k - 1) / Double(total) * 100)
                 Task { @MainActor in

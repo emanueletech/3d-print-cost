@@ -47,6 +47,28 @@
     thSpool: { it: 'Bobina', en: 'Spool', es: 'Bobina', fr: 'Bobine' },
     thUsed: { it: 'Consumato', en: 'Used', es: 'Consumido', fr: 'Consommé' },
     usedColors: { it: 'Colori usati nel progetto', en: 'Colors used in this project', es: 'Colores usados en el proyecto', fr: 'Couleurs utilisées dans le projet' },
+    sFilesBambu: {
+      it: 'I 3mf già slicati (di qualsiasi slicer) vengono letti al volo. Slicing integrato con Bambu Studio: ugello %@ mm, layer %@ mm.',
+      en: 'Already-sliced 3mf (from any slicer) are read instantly. In-app slicing with Bambu Studio: %@ mm nozzle, %@ mm layer.',
+      es: 'Los 3mf ya laminados (de cualquier laminador) se leen al instante. Laminado integrado con Bambu Studio: boquilla de %@ mm, capa de %@ mm.',
+      fr: 'Les 3mf déjà découpés (de n’importe quel slicer) sont lus instantanément. Découpe intégrée avec Bambu Studio : buse %@ mm, couche %@ mm.',
+    },
+    sFilesExport: {
+      it: "I 3mf già slicati (di qualsiasi slicer) vengono letti al volo. Per %@ lo slicing integrato non è ancora disponibile: slica in %@ ed esporta il «file del piatto slicato» — l'app lo legge subito.",
+      en: 'Already-sliced 3mf (from any slicer) are read instantly. In-app slicing isn’t available for %@ yet: slice in %@ and export the “plate sliced file” — the app reads it right away.',
+      es: 'Los 3mf ya laminados (de cualquier laminador) se leen al instante. El laminado integrado aún no está disponible para %@: lamina en %@ y exporta el «archivo de placa laminado» — la app lo lee al momento.',
+      fr: "Les 3mf déjà découpés (de n'importe quel slicer) sont lus instantanément. La découpe intégrée n'est pas encore disponible pour %@ : découpez dans %@ et exportez le « fichier de plateau découpé » — l'app le lit aussitôt.",
+    },
+    sliceOtherNote: {
+      it: 'Numeri calcolati col profilo Bambu H2C: per %@ slica in %@ ed esporta il 3mf per i consumi veri.',
+      en: 'Figures computed with the Bambu H2C profile: for %@, slice in %@ and export the 3mf for true usage.',
+      es: 'Cifras calculadas con el perfil Bambu H2C: para %@, lamina en %@ y exporta el 3mf para consumos reales.',
+      fr: 'Chiffres calculés avec le profil Bambu H2C : pour %@, découpez dans %@ et exportez le 3mf pour la consommation réelle.',
+    },
+    lblNozzle: { it: 'Ugello', en: 'Nozzle', es: 'Boquilla', fr: 'Buse' },
+    lblLayer: { it: 'Layer', en: 'Layer', es: 'Capa', fr: 'Couche' },
+    expOnly: { it: 'solo lettura export', en: 'export reading only', es: 'solo lectura de export', fr: "lecture d'export seule" },
+    pSlicer: { it: 'Slicer', en: 'Slicer', es: 'Laminador', fr: 'Slicer' },
     selAll: { it: 'Tutti', en: 'All', es: 'Todas', fr: 'Tous' },
     selNone: { it: 'Nessuno', en: 'None', es: 'Ninguna', fr: 'Aucun' },
     plateMoreHint: {
@@ -262,9 +284,10 @@
     return e[lang] || e.en || key;
   }
 
-  /** sostituisce il segnaposto %@ (stesso formato delle stringhe macOS) */
-  function fmt(template, value) {
-    return String(template).replace('%@', value);
+  /** sostituisce i segnaposto %@ in sequenza (stesso formato delle stringhe macOS) */
+  function fmt(template, ...values) {
+    let i = 0;
+    return String(template).replace(/%@/g, (m) => (i < values.length ? values[i++] : m));
   }
 
   window.I18N = { LANGS, LOC, tr, fmt };

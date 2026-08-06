@@ -121,12 +121,20 @@ struct Material: Identifiable, Codable, Hashable {
     var onSale: Bool { if let s = salePrice, s > 0, s < costPerKg { return true }; return false }
 }
 
+/// Come si slica per una stampante: quale motore della famiglia Orca e quale profilo macchina.
+struct SlicingSpec: Codable, Hashable {
+    var engine: String    // "bambu" | "elegoo" | "snapmaker" | "orca"
+    var vendor: String    // cartella vendor nell'albero profili dello slicer (BBL, Elegoo, Snapmaker…)
+    var machine: String   // nome base del profilo macchina, senza suffisso ugello
+}
+
 struct PrinterProfile: Identifiable, Codable, Hashable {
     var id = UUID()
     var name: String
     var watts: Double            // potenza media in stampa
     var wearPerHour: Double      // ammortamento/usura € per ora di stampa
     var setupCost: Double        // costo fisso per avvio stampa (preparazione)
+    var slicing: SlicingSpec? = nil   // nil = nessuno slicing dedicato (voce generica)
 }
 
 // Costo di stampa scomposto (vista "maker")
@@ -151,6 +159,8 @@ struct StoreData: Codable {
     var currency: String?     // opzionali per retrocompatibilità con vecchi store.json
     var eurRate: Double?
     var amazonTag: String?    // tag affiliato Amazon.it dell'utente
+    var nozzle: Double?       // ugello scelto per lo slicing integrato (default 0.4)
+    var layerHeight: Double?  // altezza layer scelta (default 0.20)
 }
 
 enum Store {
@@ -166,12 +176,17 @@ enum Store {
             // migrazione non distruttiva: aggiunge stampanti predefinite nuove mancanti (per nome)
             let have = Set(s.printers.map { $0.name })
             for p in defaultPrinters() where !have.contains(p.name) { s.printers.append(p) }
+            // migrazione v1.2: completa il blocco slicing sulle stampanti esistenti (per nome)
+            let specs = Dictionary(uniqueKeysWithValues: defaultPrinters().compactMap { p in p.slicing.map { (p.name, $0) } })
+            for i in s.printers.indices where s.printers[i].slicing == nil {
+                s.printers[i].slicing = specs[s.printers[i].name]
+            }
             // tiene la voce generica ("Altra") sempre in fondo
             let generic: Set<String> = ["Altra", "Other", "Otra", "Autre", "—"]
             s.printers = s.printers.filter { !generic.contains($0.name) } + s.printers.filter { generic.contains($0.name) }
             return s
         }
-        return StoreData(materials: defaultMaterials(), printers: defaultPrinters(), failurePct: 7, kwh: 0.209, currency: "eur", eurRate: 1.0, amazonTag: defaultAmazonTag)
+        return StoreData(materials: defaultMaterials(), printers: defaultPrinters(), failurePct: 7, kwh: 0.209, currency: "eur", eurRate: 1.0, amazonTag: defaultAmazonTag, nozzle: 0.4, layerHeight: 0.20)
     }
 
     /// tag affiliato incorporato e bloccato (app dell'autore)
@@ -262,16 +277,25 @@ enum Store {
 
     // Stampanti di default: Bambu con potenza media, usura oraria e setup indicativi.
     static func defaultPrinters() -> [PrinterProfile] {
-        func p(_ n: String, _ w: Double, _ wear: Double, _ setup: Double = 0.15) -> PrinterProfile {
-            PrinterProfile(name: n, watts: w, wearPerHour: wear, setupCost: setup)
+        func p(_ n: String, _ w: Double, _ wear: Double, _ setup: Double = 0.15, _ spec: SlicingSpec? = nil) -> PrinterProfile {
+            PrinterProfile(name: n, watts: w, wearPerHour: wear, setupCost: setup, slicing: spec)
         }
+        func bbl(_ machine: String) -> SlicingSpec { SlicingSpec(engine: "bambu", vendor: "BBL", machine: machine) }
         // usura oraria stimata = prezzo macchina / vita utile in ore
         return [
-            p("Bambu Lab H2C", 180, 0.12), p("Bambu Lab H2D", 180, 0.14),
-            p("Bambu Lab H2D Pro", 200, 0.16), p("Bambu Lab H2S", 160, 0.11),
-            p("Bambu Lab X1C", 110, 0.10), p("Bambu Lab P1S", 105, 0.06),
-            p("Bambu Lab A1", 80, 0.04),
-            p("Snapmaker U1", 150, 0.10),   // tool-changer multicolore; media PLA ~150 W (picco 1150 W)
+            p("Bambu Lab H2C", 180, 0.12, 0.15, bbl("Bambu Lab H2C")),
+            p("Bambu Lab H2D", 180, 0.14, 0.15, bbl("Bambu Lab H2D")),
+            p("Bambu Lab H2D Pro", 200, 0.16, 0.15, bbl("Bambu Lab H2D Pro")),
+            p("Bambu Lab H2S", 160, 0.11, 0.15, bbl("Bambu Lab H2S")),
+            p("Bambu Lab X1C", 110, 0.10, 0.15, bbl("Bambu Lab X1 Carbon")),
+            p("Bambu Lab P1S", 105, 0.06, 0.15, bbl("Bambu Lab P1S")),
+            p("Bambu Lab A1", 80, 0.04, 0.15, bbl("Bambu Lab A1")),
+            p("Snapmaker U1", 150, 0.10, 0.15,   // tool-changer multicolore; media PLA ~150 W (picco 1150 W)
+              SlicingSpec(engine: "snapmaker", vendor: "Snapmaker", machine: "Snapmaker U1")),
+            p("Elegoo Centauri Carbon", 110, 0.06, 0.15,
+              SlicingSpec(engine: "elegoo", vendor: "Elegoo", machine: "Elegoo Centauri Carbon")),
+            p("Elegoo Neptune 4 Pro", 95, 0.04, 0.15,
+              SlicingSpec(engine: "elegoo", vendor: "Elegoo", machine: "Elegoo Neptune 4 Pro")),
             p("Altra", 120, 0.08),
         ]
     }
