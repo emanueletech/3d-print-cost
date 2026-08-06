@@ -55,6 +55,7 @@ enum Loc {
         "lblLayer": ["it":"Layer","en":"Layer","es":"Capa","fr":"Couche"],
         "expOnly": ["it":"solo lettura export","en":"export reading only","es":"solo lectura de export","fr":"lecture d'export seule"],
         "pSlicer": ["it":"Slicer","en":"Slicer","es":"Laminador","fr":"Slicer"],
+        "reslice": ["it":"Rislica con stampante, ugello e layer attuali","en":"Re-slice with the current printer, nozzle and layer","es":"Relamina con impresora, boquilla y capa actuales","fr":"Redécoupe avec l'imprimante, la buse et la couche actuelles"],
         "selAll": ["it":"Tutti","en":"All","es":"Todas","fr":"Tous"],
         "selNone": ["it":"Nessuno","en":"None","es":"Ninguna","fr":"Aucun"],
         "plateMoreHint": ["it":"I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.",
@@ -540,11 +541,13 @@ final class AppModel: ObservableObject {
         f.toSlice = []
         objectWillChange.send()
     }
-    func slice(_ f: LoadedFile) {
+    /// `fresh` = rislica da capo coi parametri attuali (stampante/ugello/layer),
+    /// anche se il file ha già un risultato.
+    func slice(_ f: LoadedFile, fresh: Bool = false) {
         let path = f.path
         // file già slicato → giro incrementale sui piatti spenti selezionati;
         // altrimenti si slicano i piatti spuntati tra le anteprime (tutti, se tutti spuntati)
-        let incremental = f.analysis != nil
+        let incremental = !fresh && f.analysis != nil
         let sel: [Int]
         if incremental {
             sel = f.toSlice.sorted()

@@ -332,9 +332,10 @@
     }
   }
 
-  async function sliceFile(file) {
-    // file già slicato → giro incrementale: si aggiungono i piatti scelti tra quelli spenti
-    const incremental = !!file.analysis;
+  async function sliceFile(file, fresh = false) {
+    // file già slicato → giro incrementale: si aggiungono i piatti scelti tra quelli spenti.
+    // `fresh` rislica tutto da capo coi parametri attuali (stampante/ugello/layer).
+    const incremental = !fresh && !!file.analysis;
     let sel;
     if (incremental) {
       sel = [...(file.toSlice || [])].sort((a, b) => a - b);
@@ -591,6 +592,7 @@
     return card(`<div class="frow">
         <span class="fname">📄 ${esc(f.name)}</span>
         <div class="fstats">${head}${more}</div>
+        ${f.analysis ? `<button class="x" data-reslice="${f.id}" title="${esc(t('reslice'))}">⟳</button>` : ''}
         <button class="x" data-del="${f.id}">✕</button>
       </div>${thumbs}`, 'file');
   }
@@ -1041,6 +1043,12 @@
       if (sl) {
         const f = M.files.find((x) => x.id === +sl.getAttribute('data-slice'));
         return f && sliceFile(f);
+      }
+
+      const rsl = hit('data-reslice');
+      if (rsl) {
+        const f = M.files.find((x) => x.id === +rsl.getAttribute('data-reslice'));
+        return f && sliceFile(f, true);
       }
 
       const selAll = hit('data-selall');

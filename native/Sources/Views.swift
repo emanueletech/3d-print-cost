@@ -568,6 +568,9 @@ struct FileCard: View {
                             Button("\(m.t("slice")) (\(f.toSlice.count))") { m.slice(f) }
                                 .buttonStyle(.borderedProminent).controlSize(.small).tint(.orange)
                         }
+                        // rislica da capo col setup attuale (stampante/ugello/layer)
+                        Button { m.slice(f, fresh: true) } label: { Image(systemName: "arrow.clockwise") }
+                            .buttonStyle(.plain).foregroundStyle(.secondary).help(m.t("reslice"))
                     } else {
                         if case .error(let e) = f.state {
                             Label(m.t(e == "noBambu" ? "noBambuShort" : "sliceFailed"), systemImage: "exclamationmark.triangle.fill")

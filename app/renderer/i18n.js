@@ -69,6 +69,12 @@
     lblLayer: { it: 'Layer', en: 'Layer', es: 'Capa', fr: 'Couche' },
     expOnly: { it: 'solo lettura export', en: 'export reading only', es: 'solo lectura de export', fr: "lecture d'export seule" },
     pSlicer: { it: 'Slicer', en: 'Slicer', es: 'Laminador', fr: 'Slicer' },
+    reslice: {
+      it: 'Rislica con stampante, ugello e layer attuali',
+      en: 'Re-slice with the current printer, nozzle and layer',
+      es: 'Relamina con impresora, boquilla y capa actuales',
+      fr: "Redécoupe avec l'imprimante, la buse et la couche actuelles",
+    },
     selAll: { it: 'Tutti', en: 'All', es: 'Todas', fr: 'Tous' },
     selNone: { it: 'Nessuno', en: 'None', es: 'Ninguna', fr: 'Aucun' },
     plateMoreHint: {
