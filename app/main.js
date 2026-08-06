@@ -298,6 +298,28 @@ function registerIPC() {
       onProgress: (done, total) => { if (win) win.webContents.send('slice-progress', { done, total }); },
     }));
   ipcMain.handle('slicer:status', () => ({ bambu: slicer.findBambu(state.bambuPath) || '' }));
+  // apre il 3mf nello slicer della famiglia Orca indicato (flusso manuale U1/Elegoo)
+  ipcMain.handle('slicer:openIn', (_e, engine, file) => {
+    const isMacHere = process.platform === 'darwin';
+    const CANDS = {
+      elegoo: isMacHere
+        ? ['/Applications/ElegooSlicer.app', '/Applications/Elegoo Slicer.app']
+        : [path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'ELEGOOSlicer', 'elegoo-slicer.exe'),
+           path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'ElegooSlicer', 'elegoo-slicer.exe')],
+      snapmaker: isMacHere
+        ? ['/Applications/Snapmaker Orca.app', '/Applications/Snapmaker_Orca.app']
+        : [path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'Snapmaker Orca', 'snapmaker-orca.exe')],
+      orca: isMacHere
+        ? ['/Applications/OrcaSlicer.app']
+        : [path.join(process.env['ProgramFiles'] || 'C:\\Program Files', 'OrcaSlicer', 'orca-slicer.exe')],
+    };
+    const app2 = (CANDS[engine] || []).find((p) => fs.existsSync(p));
+    if (!app2) return false;
+    const { spawn } = require('child_process');
+    if (isMacHere) spawn('open', ['-a', app2, file], { detached: true, stdio: 'ignore' }).unref();
+    else spawn(app2, [file], { detached: true, stdio: 'ignore' }).unref();
+    return true;
+  });
 
   /** mesh dal disco: lo STEP passa da Bambu Studio, STL/OBJ si leggono diretti */
   ipcMain.handle('mesh:read', async (_e, file) => {

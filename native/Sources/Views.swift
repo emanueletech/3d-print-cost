@@ -577,7 +577,16 @@ struct FileCard: View {
                                 .font(.system(size: 11.5, weight: .medium)).foregroundStyle(.orange)
                                 .lineLimit(2).frame(maxWidth: 300, alignment: .trailing)
                         }
-                        Button(m.t("slice")) { m.slice(f) }.buttonStyle(.borderedProminent).controlSize(.small)
+                        // stampante con slicer proprio (U1/Elegoo): la via maestra è
+                        // slicare lì ed esportare — se l'app c'è, la apriamo noi
+                        if let spec = m.selectedPrinter?.slicing, spec.engine != "bambu",
+                           m.slicerAppPath(spec.engine) != nil {
+                            Button(String(format: m.t("openIn"), m.slicerAppName(spec.engine))) { m.openInSlicer(f) }
+                                .buttonStyle(.borderedProminent).controlSize(.small)
+                            Button(m.t("slice")) { m.slice(f) }.buttonStyle(.bordered).controlSize(.small)
+                        } else {
+                            Button(m.t("slice")) { m.slice(f) }.buttonStyle(.borderedProminent).controlSize(.small)
+                        }
                     }
                     Button { m.remove(f) } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary)
                 }

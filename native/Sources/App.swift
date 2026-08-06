@@ -56,6 +56,7 @@ enum Loc {
         "expOnly": ["it":"solo lettura export","en":"export reading only","es":"solo lectura de export","fr":"lecture d'export seule"],
         "pSlicer": ["it":"Slicer","en":"Slicer","es":"Laminador","fr":"Slicer"],
         "reslice": ["it":"Rislica con stampante, ugello e layer attuali","en":"Re-slice with the current printer, nozzle and layer","es":"Relamina con impresora, boquilla y capa actuales","fr":"Redécoupe avec l'imprimante, la buse et la couche actuelles"],
+        "openIn": ["it":"Apri in %@","en":"Open in %@","es":"Abrir en %@","fr":"Ouvrir dans %@"],
         "selAll": ["it":"Tutti","en":"All","es":"Todas","fr":"Tous"],
         "selNone": ["it":"Nessuno","en":"None","es":"Ninguna","fr":"Aucun"],
         "plateMoreHint": ["it":"I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.",
@@ -356,6 +357,27 @@ final class AppModel: ObservableObject {
         case "orca": return "OrcaSlicer"
         default: return "—"
         }
+    }
+
+    /// Percorso dell'app slicer installata per un motore, se presente (v1.2 M4).
+    func slicerAppPath(_ engine: String) -> String? {
+        let cands: [String]
+        switch engine {
+        case "elegoo": cands = ["/Applications/ElegooSlicer.app", "/Applications/Elegoo Slicer.app"]
+        case "snapmaker": cands = ["/Applications/Snapmaker Orca.app", "/Applications/Snapmaker_Orca.app"]
+        case "orca": cands = ["/Applications/OrcaSlicer.app"]
+        case "bambu": cands = ["/Applications/BambuStudio.app"]
+        default: return nil
+        }
+        return cands.first { FileManager.default.fileExists(atPath: $0) }
+    }
+
+    /// Apre il 3mf nello slicer della stampante selezionata (flusso manuale U1/Elegoo).
+    func openInSlicer(_ f: LoadedFile) {
+        guard let spec = selectedPrinter?.slicing, let app = slicerAppPath(spec.engine) else { return }
+        NSWorkspace.shared.open([URL(fileURLWithPath: f.path)],
+                                withApplicationAt: URL(fileURLWithPath: app),
+                                configuration: NSWorkspace.OpenConfiguration())
     }
 
     /// materiale associato a un colore del progetto (per costo consumato a €/kg):

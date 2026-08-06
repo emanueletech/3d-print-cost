@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('api', {
   analyze: (p) => ipcRenderer.invoke('threemf:analyze', p),
   thumbnails: (p) => ipcRenderer.invoke('threemf:thumbnails', p),
   slice: (p, plates) => ipcRenderer.invoke('slicer:slice', p, plates || []),
+  openInSlicer: (engine, p) => ipcRenderer.invoke('slicer:openIn', engine, p),
   slicerStatus: () => ipcRenderer.invoke('slicer:status'),
 
   /* mesh 3D */

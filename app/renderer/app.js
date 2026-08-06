@@ -553,7 +553,15 @@
             stat(eur((secs / 3600) * selectedPrinter().watts / 1000 * num(M.store.kwh)), t('thEnergy'))
           );
         })()
-      : `<button class="btn small primary" data-slice="${f.id}">${esc(t('slice'))}</button>`;
+      : (() => {
+          // stampante con slicer proprio (U1/Elegoo): la via maestra è slicare lì
+          const spSpec = selectedPrinter().slicing;
+          const openBtn = spSpec && spSpec.engine !== 'bambu'
+            ? `<button class="btn small primary" data-openin="${f.id}">${esc(fmt(t('openIn'), slicerAppName(spSpec.engine)))}</button> `
+            : '';
+          const cls = openBtn ? 'btn small' : 'btn small primary';
+          return `${openBtn}<button class="${cls}" data-slice="${f.id}">${esc(t('slice'))}</button>`;
+        })();
     // giro incrementale: piatti spenti selezionati e pronti da slicare
     const more = f.analysis && f.toSlice && f.toSlice.size
       ? `<button class="btn small primary" data-slice="${f.id}">${esc(t('slice'))} (${f.toSlice.size})</button>`
@@ -1049,6 +1057,18 @@
       if (rsl) {
         const f = M.files.find((x) => x.id === +rsl.getAttribute('data-reslice'));
         return f && sliceFile(f, true);
+      }
+
+      const opin = hit('data-openin');
+      if (opin) {
+        const f = M.files.find((x) => x.id === +opin.getAttribute('data-openin'));
+        const spSpec = selectedPrinter().slicing;
+        if (f && spSpec) {
+          api.openInSlicer(spSpec.engine, f.path).then((ok) => {
+            if (!ok) toast(fmt(t('slicerNotFound'), slicerAppName(spSpec.engine)));
+          });
+        }
+        return;
       }
 
       const selAll = hit('data-selall');

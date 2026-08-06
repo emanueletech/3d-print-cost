@@ -69,6 +69,13 @@
     lblLayer: { it: 'Layer', en: 'Layer', es: 'Capa', fr: 'Couche' },
     expOnly: { it: 'solo lettura export', en: 'export reading only', es: 'solo lectura de export', fr: "lecture d'export seule" },
     pSlicer: { it: 'Slicer', en: 'Slicer', es: 'Laminador', fr: 'Slicer' },
+    openIn: { it: 'Apri in %@', en: 'Open in %@', es: 'Abrir en %@', fr: 'Ouvrir dans %@' },
+    slicerNotFound: {
+      it: '%@ non risulta installato: installalo oppure slica altrove ed esporta il .gcode.3mf.',
+      en: "%@ doesn't seem to be installed: install it or slice elsewhere and export the .gcode.3mf.",
+      es: '%@ no parece estar instalado: instálalo o lamina en otro sitio y exporta el .gcode.3mf.',
+      fr: "%@ ne semble pas installé : installez-le ou découpez ailleurs et exportez le .gcode.3mf.",
+    },
     reslice: {
       it: 'Rislica con stampante, ugello e layer attuali',
       en: 'Re-slice with the current printer, nozzle and layer',
