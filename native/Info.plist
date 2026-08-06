@@ -4,8 +4,8 @@
   <key>CFBundleName</key><string>3D Print Cost</string>
   <key>CFBundleDisplayName</key><string>3D Print Cost</string>
   <key>CFBundleIdentifier</key><string>it.emanuele.costostampa3d</string>
-  <key>CFBundleVersion</key><string>1.1.4</string>
-  <key>CFBundleShortVersionString</key><string>1.1.4</string>
+  <key>CFBundleVersion</key><string>1.1.5</string>
+  <key>CFBundleShortVersionString</key><string>1.1.5</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleExecutable</key><string>CostoStampa3D</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
