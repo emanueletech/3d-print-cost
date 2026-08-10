@@ -112,10 +112,13 @@
       "icon": "build/icon.png",
       "artifactName": "3D-Print-Cost-${version}.${ext}",
       "synopsis": "Tempi, materiali e costo reale delle stampe 3D",
-      "maintainer": "Emanuele <281643038+emanueletech@users.noreply.github.com>"
+      "maintainer": "Emanuele <281643038+emanueletech@users.noreply.github.com>",
+      "syncDesktopName": true
     },
     "deb": {
       "artifactName": "3D-Print-Cost-${version}.${ext}"
     }
-  }
+  },
+  "homepage": "https://github.com/emanueletech/3d-print-cost",
+  "desktopName": "3DPrintCost"
 }
