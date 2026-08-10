@@ -18,6 +18,7 @@ function parseProject(file) {
   const raw = zip.readMany(file, [ENTRY_PROJECT, ENTRY_MODEL]);
   let slotColors = [];
   let slotTypes = [];
+  let slotKinds = [];
   let printer = '';
   const psRaw = raw[ENTRY_PROJECT];
   if (psRaw) {
@@ -27,6 +28,8 @@ function parseProject(file) {
       slotTypes = (cfg.filament_settings_id || []).map((s) =>
         /matte/i.test(String(s)) ? 'PLA Matte' : 'PLA Basic'
       );
+      // tipo materiale per slot (PLA/PETG/TPU…): guida la scelta dei profili (v1.2 M5)
+      slotKinds = (cfg.filament_type || []).map((s) => String(s).toUpperCase());
       printer = cfg.printer_model || '';
     } catch {
       /* project_settings illeggibile: si prosegue con i dati del solo slice_info */
@@ -43,7 +46,7 @@ function parseProject(file) {
       if (name) objSlot[name[1]] = ext ? +ext[1] : 1;
     }
   }
-  return { slotColors, slotTypes, objSlot, printer };
+  return { slotColors, slotTypes, slotKinds, objSlot, printer };
 }
 
 /**

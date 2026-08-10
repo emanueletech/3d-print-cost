@@ -233,7 +233,28 @@ function resolveBambu(bambu, spec, nozzle, layer, tmp) {
   } catch {
     /* il profilo resta com'è */
   }
-  return { machine, process: procFlat, filBasic, filMatte, names: `${mach} · ${proc}` };
+  return { machine, process: procFlat, filBasic, filMatte, root, code, sfx, names: `${mach} · ${proc}` };
+}
+
+/** Profilo filamento per tipo materiale (PETG/TPU…), appiattito; null se non esiste. */
+function bambuFilamentFor(kind, r, tmp) {
+  const CAND = {
+    PETG: [
+      `Bambu PETG HF @BBL ${r.code}${r.sfx}`, `Bambu PETG HF @BBL ${r.code}`,
+      `Bambu PETG Basic @BBL ${r.code}${r.sfx}`, `Bambu PETG Basic @BBL ${r.code}`,
+      'Bambu PETG HF @base', 'Generic PETG @base', 'Generic PETG',
+    ],
+    TPU: [
+      `Bambu TPU 95A HF @BBL ${r.code}${r.sfx}`, `Bambu TPU 95A HF @BBL ${r.code}`,
+      `Bambu TPU 95A @BBL ${r.code}${r.sfx}`, `Bambu TPU 95A @BBL ${r.code}`,
+      'Bambu TPU 95A HF @base', 'Generic TPU @base', 'Generic TPU',
+    ],
+  };
+  const names = CAND[kind];
+  if (!names) return null;
+  const dir = path.join(r.root, 'filament');
+  const found = names.find((n) => fs.existsSync(path.join(dir, `${n}.json`)));
+  return found ? flattenPreset(dir, found, tmp) : null;
 }
 
 /** Numero di piatti dichiarati dal progetto (Metadata/model_settings.config). */
@@ -266,18 +287,29 @@ async function slice(file, { profilesDir, bambuPath, plates = [], spec = null, n
     let filBasic = path.join(profilesDir, 'fil_PLA_Basic_H2C.json');
     let filMatte = path.join(profilesDir, 'fil_PLA_Matte_H2C.json');
     let machineForRemap = null;
+    let resolved = null;
     if (spec && spec.engine === 'bambu') {
-      const r = resolveBambu(bambu, spec, nozzle, layerHeight, tmp);
-      if (r) {
-        settings = `${r.machine};${r.process}`;
-        filBasic = r.filBasic;
-        filMatte = r.filMatte;
-        machineForRemap = r.machine;
+      resolved = resolveBambu(bambu, spec, nozzle, layerHeight, tmp);
+      if (resolved) {
+        settings = `${resolved.machine};${resolved.process}`;
+        filBasic = resolved.filBasic;
+        filMatte = resolved.filMatte;
+        machineForRemap = resolved.machine;
       }
     }
-    const fil = (proj.slotTypes && proj.slotTypes.length ? proj.slotTypes : ['PLA Basic'])
-      .map((t) => (/matte/i.test(t) ? filMatte : filBasic))
-      .join(';');
+    // un profilo filamento per slot: PLA Basic/Matte come sempre; PETG e TPU
+    // dai profili Bambu quando risolti (v1.2 M5), altrimenti ripiego sul PLA
+    const kindCache = {};
+    const filForSlot = (i, t) => {
+      const kind = (proj.slotKinds && proj.slotKinds[i]) || 'PLA';
+      if (resolved && kind !== 'PLA') {
+        if (!(kind in kindCache)) kindCache[kind] = bambuFilamentFor(kind, resolved, tmp);
+        if (kindCache[kind]) return kindCache[kind];
+      }
+      return /matte/i.test(t) ? filMatte : filBasic;
+    };
+    const types = proj.slotTypes && proj.slotTypes.length ? proj.slotTypes : ['PLA Basic'];
+    const fil = types.map((t, i) => filForSlot(i, t)).join(';');
 
     const attempt = async (src, { plate = 0, arrange = false } = {}) => {
       fs.rmSync(outFile, { force: true }); // mai fidarsi dell'export del tentativo precedente

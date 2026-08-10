@@ -133,15 +133,17 @@ enum Slicer {
         }
     }
 
-    struct Project { var slotColors: [String]; var slotTypes: [String]; var objSlot: [String: Int] }
+    struct Project { var slotColors: [String]; var slotTypes: [String]; var slotKinds: [String]; var objSlot: [String: Int] }
 
     static func parseProject(_ file: String) -> Project {
-        var colors: [String] = [], types: [String] = [], objSlot: [String: Int] = [:]
+        var colors: [String] = [], types: [String] = [], kinds: [String] = [], objSlot: [String: Int] = [:]
         if let ps = unzipEntry(file, "Metadata/project_settings.config"),
            let data = ps.data(using: .utf8),
            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             colors = (obj["filament_colour"] as? [String] ?? []).map { $0.uppercased() }
             types = (obj["filament_settings_id"] as? [String] ?? []).map { $0.lowercased().contains("matte") ? "PLA Matte" : "PLA Basic" }
+            // tipo materiale per slot (PLA/PETG/TPU…): guida la scelta dei profili (v1.2 M5)
+            kinds = (obj["filament_type"] as? [String] ?? []).map { $0.uppercased() }
         }
         if let ms = unzipEntry(file, "Metadata/model_settings.config") {
             for m in matches("<object id=\"(\\d+)\">(.*?)</object>", ms) {
@@ -152,7 +154,7 @@ enum Slicer {
                 }
             }
         }
-        return Project(slotColors: colors, slotTypes: types, objSlot: objSlot)
+        return Project(slotColors: colors, slotTypes: types, slotKinds: kinds, objSlot: objSlot)
     }
 
     static func analyze(_ file: String) -> LoadState {
@@ -218,15 +220,27 @@ enum Slicer {
         var filBasic = prof + "/fil_PLA_Basic_H2C.json"
         var filMatte = prof + "/fil_PLA_Matte_H2C.json"
         var machineForRemap: String? = nil
+        var resolved: ResolvedProfiles? = nil
         if let spec, spec.engine == "bambu",
            let r = resolveBambu(spec, nozzle: nozzle, layer: layer, tmp: tmp, note: note) {
             settings = "\(r.machine);\(r.process)"
             filBasic = r.filBasic; filMatte = r.filMatte
             machineForRemap = r.machine
+            resolved = r
         }
-        let fil = (proj.slotTypes.isEmpty ? ["PLA Basic"] : proj.slotTypes)
-            .map { $0.contains("Matte") ? filMatte : filBasic }
-            .joined(separator: ";")
+        // un profilo filamento per slot: PLA Basic/Matte come sempre; PETG e TPU
+        // dai profili Bambu quando risolti (v1.2 M5), altrimenti ripiego sul PLA
+        var kindCache: [String: String?] = [:]
+        func filForSlot(_ i: Int, _ t: String) -> String {
+            let kind = i < proj.slotKinds.count ? proj.slotKinds[i] : "PLA"
+            if let r = resolved, kind != "PLA" {
+                if kindCache[kind] == nil { kindCache[kind] = bambuFilamentFor(kind, r, tmp: tmp) }
+                if let p = kindCache[kind] ?? nil { return p }
+            }
+            return t.contains("Matte") ? filMatte : filBasic
+        }
+        let types = proj.slotTypes.isEmpty ? ["PLA Basic"] : proj.slotTypes
+        let fil = types.enumerated().map { filForSlot($0.offset, $0.element) }.joined(separator: ";")
 
         func runSlice(_ src: String, plate: Int = 0, arrange: Bool = false) -> Bool {
             try? FileManager.default.removeItem(atPath: out)   // mai fidarsi dell'export del tentativo precedente
@@ -334,7 +348,29 @@ enum Slicer {
         return out
     }
 
-    struct ResolvedProfiles { var machine: String; var process: String; var filBasic: String; var filMatte: String }
+    struct ResolvedProfiles {
+        var machine: String; var process: String; var filBasic: String; var filMatte: String
+        var root: String; var code: String; var sfx: String
+    }
+
+    /// Profilo filamento per tipo materiale (PETG/TPU…), appiattito; nil se non esiste.
+    static func bambuFilamentFor(_ kind: String, _ r: ResolvedProfiles, tmp: String) -> String? {
+        let cands: [String]
+        switch kind {
+        case "PETG":
+            cands = ["Bambu PETG HF @BBL \(r.code)\(r.sfx)", "Bambu PETG HF @BBL \(r.code)",
+                     "Bambu PETG Basic @BBL \(r.code)\(r.sfx)", "Bambu PETG Basic @BBL \(r.code)",
+                     "Bambu PETG HF @base", "Generic PETG @base", "Generic PETG"]
+        case "TPU":
+            cands = ["Bambu TPU 95A HF @BBL \(r.code)\(r.sfx)", "Bambu TPU 95A HF @BBL \(r.code)",
+                     "Bambu TPU 95A @BBL \(r.code)\(r.sfx)", "Bambu TPU 95A @BBL \(r.code)",
+                     "Bambu TPU 95A HF @base", "Generic TPU @base", "Generic TPU"]
+        default: return nil
+        }
+        let dir = r.root + "/filament"
+        guard let name = cands.first(where: { FileManager.default.fileExists(atPath: "\(dir)/\($0).json") }) else { return nil }
+        return flattenPreset(dir: dir, name: name, into: tmp)
+    }
 
     /// Trova e appiattisce macchina/processo/filamenti per la stampante scelta.
     /// nil = si resta sui profili H2C in bundle (Bambu Studio assente o profili non trovati).
@@ -401,7 +437,8 @@ enum Slicer {
             if let od = try? JSONSerialization.data(withJSONObject: obj) { try? od.write(to: URL(fileURLWithPath: pp)) }
         }
         note("[profili] \(mach) · \(proc) · \(filB)")
-        return ResolvedProfiles(machine: mp, process: pp, filBasic: fb, filMatte: fm)
+        return ResolvedProfiles(machine: mp, process: pp, filBasic: fb, filMatte: fm,
+                                root: root, code: code, sfx: sfx)
     }
 
     /// Slicing di un file mesh singolo (STL/OBJ/STEP) col profilo H2C, mono-materiale PLA Basic.
