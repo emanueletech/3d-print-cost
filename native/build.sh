@@ -5,8 +5,12 @@ cd "$(dirname "$0")"
 # SDK: Command Line Tools se presenti (Mac di sviluppo), altrimenti xcrun (runner CI con Xcode)
 SDK="/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk"
 [ -d "$SDK" ] || SDK="$(xcrun --sdk macosx --show-sdk-path)"
+# sorgenti copiati fuori da iCloud prima di compilare: dopo un git pull la
+# sincronizzazione ritocca i file e swiftc fallisce con "modified during the build"
+SRCTMP="$(mktemp -d)"
+cp Sources/*.swift "$SRCTMP"/
 swiftc -parse-as-library -sdk "$SDK" -target arm64-apple-macos26.0 \
-  -o CostoStampa Sources/*.swift
+  -o CostoStampa "$SRCTMP"/*.swift
 APP="3D Print Cost.app"
 EXE="CostoStampa3D"     # nome interno dell'eseguibile (deve combaciare con CFBundleExecutable)
 # il bundle si assembla e si firma in una cartella temporanea FUORI da iCloud:
