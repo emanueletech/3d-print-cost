@@ -1,24 +1,27 @@
 ## 🇮🇹 Novità
 
-**Un piatto guasto non ferma più tutto il file.** Nei progetti multi-piatto bastava un piatto problematico (fuori area, in conflitto con la prime tower…) per far fallire l'intero slicing. Ora l'app slica piatto per piatto quando serve: i piatti buoni si sommano nel risultato, quelli irrecuperabili vengono elencati in un avviso e restano con l'anteprima spenta.
+**La stampante comanda lo slicer.** Selezionata una stampante Bambu (H2C, H2D, H2D Pro, H2S, X1C, P1S, A1), lo slicing integrato usa i **suoi profili veri**, letti dall'installazione di Bambu Studio e risolti automaticamente: letto, limiti e riposizionamento seguono la macchina scelta, non più un profilo fisso. Se Bambu Studio manca, si torna al profilo incluso come prima.
 
-**Slicing incrementale.** Sui file già slicati i piatti spenti restano cliccabili: li selezioni (bordo arancione) e con «Slica (N)» vengono aggiunti al risultato esistente — senza ricaricare il file. Funziona anche per ritentare i piatti falliti.
+**Ugello e layer a scelta.** Nel pannello File & Slicing scegli l'ugello (0.2–0.8 mm) e l'altezza layer: i profili di processo si adattano di conseguenza. Sui file già slicati il nuovo pulsante **⟳ Rislica** rifà i conti con il setup corrente.
 
-**Avanzamento visibile.** Durante lo slicing piatto per piatto la barra di lavoro mostra «piatto k/N · percentuale», aggiornata a ogni piatto.
+**Snapmaker U1 ed Elegoo, senza finzioni.** Le stampanti con uno slicer proprio (Snapmaker Orca, ElegooSlicer) mostrano il pulsante **«Apri in …»**: il 3mf si apre direttamente lì, si slica, si esporta il «file del piatto slicato» e l'app lo legge al volo con i consumi veri. In listino arrivano Elegoo Centauri Carbon e Neptune 4 Pro.
 
-**Selezione più rapida.** Pulsanti **Tutti / Nessuno** per accendere o spegnere tutte le spunte in un colpo; sulle anteprime dei piatti slicati compare la **quota di tempo** del piatto sul totale (es. 38%) al posto del segno di spunta.
+**PETG e TPU.** Il tipo di materiale di ogni slot del progetto guida la scelta del profilo filamento: PETG e TPU usano i profili dedicati della stampante risolta, con ripiego sul PLA dove mancano.
 
-**Il file ti porta dove serve.** Trascinando un 3mf in qualsiasi sezione l'app passa da sola a File & Slicing.
+**Debutto Linux.** Da questa versione l'app c'è anche per Linux: **AppImage** (qualsiasi distribuzione) e **.deb** (Debian/Ubuntu), con le stesse funzioni di Windows.
+
+**Ritocchi.** Le anteprime dei piatti slicati mostrano il tempo di stampa del piatto; sezione Stampanti con la colonna dello slicer di ogni macchina; compilazione da cartelle sincronizzate iCloud sistemata per chi costruisce l'app da sé.
 
 ### Pacchetti
 
 | Sistema | File |
 |---|---|
-| **Windows** | `3D-Print-Cost-Setup-1.1.5.exe` (installer) — oppure `3D-Print-Cost-Portable-1.1.5.exe` (nessuna installazione) |
+| **Windows** | `3D-Print-Cost-Setup-1.2.0.exe` (installer) — oppure `3D-Print-Cost-Portable-1.2.0.exe` |
 | **macOS** | `3D-Print-Cost.dmg` — richiede macOS 26 su Apple Silicon |
+| **Linux** | `3D-Print-Cost-1.2.0.AppImage` — oppure `3D-Print-Cost-1.2.0.deb` |
 | **Browser** | `index.html` nel repository, versione ridotta senza slicing |
 
-Né l'installer Windows né l'app macOS hanno una firma digitale a pagamento: al primo avvio i rispettivi sistemi mostrano un avviso. Le istruzioni per superarlo sono nel README.
+I pacchetti non hanno una firma digitale a pagamento: al primo avvio i sistemi mostrano un avviso; le istruzioni per superarlo sono nel README.
 
 ### Aggiornamento dalle versioni precedenti
 
@@ -28,25 +31,28 @@ Dalla 1.1.4 l'app segnala da sola le nuove versioni all'avvio. Chi usa la **1.0 
 
 ## 🇺🇸 What's new
 
-**One bad plate no longer sinks the whole file.** In multi-plate projects a single problematic plate (out of the printable area, colliding with the prime tower…) used to fail the entire slicing run. The app now slices plate by plate when needed: good plates add up in the result, unrecoverable ones are listed in a notice and stay dimmed.
+**The printer drives the slicer.** With a Bambu printer selected (H2C, H2D, H2D Pro, H2S, X1C, P1S, A1), in-app slicing uses its **real profiles**, read from your Bambu Studio installation and resolved automatically: bed, limits and repositioning follow the chosen machine instead of a fixed profile. If Bambu Studio is missing, the bundled profile is used as before.
 
-**Incremental slicing.** On already-sliced files the dimmed plates stay clickable: select them (orange border) and "Slice (N)" adds them to the existing result — no need to reload the file. It also works to retry failed plates.
+**Nozzle and layer of your choice.** In the Files & Slicing panel pick the nozzle (0.2–0.8 mm) and layer height: process profiles adapt accordingly. On already-sliced files the new **⟳ Re-slice** button redoes the numbers with the current setup.
 
-**Visible progress.** During plate-by-plate slicing the busy bar shows "plate k/N · percentage", updated at every plate.
+**Snapmaker U1 and Elegoo, no pretending.** Printers with their own slicer (Snapmaker Orca, ElegooSlicer) get an **"Open in …"** button: the 3mf opens right there, you slice, export the "plate sliced file" and the app reads it instantly with true usage. Elegoo Centauri Carbon and Neptune 4 Pro join the printer list.
 
-**Faster selection.** **All / None** buttons flip every checkmark at once; sliced plate previews show the plate's **share of total print time** (e.g. 38%) instead of a checkmark.
+**PETG and TPU.** Each slot's material type drives the filament profile choice: PETG and TPU use the resolved printer's dedicated profiles, falling back to PLA where missing.
 
-**Files take you where the work is.** Dropping a 3mf on any section jumps straight to Files & Slicing.
+**Linux debut.** Starting with this version the app is also available for Linux: **AppImage** (any distro) and **.deb** (Debian/Ubuntu), with the same features as Windows.
+
+**Polish.** Sliced plate previews show the plate's print time; the Printers section gains a column with each machine's slicer; building the app from iCloud-synced folders fixed for self-builders.
 
 ### Packages
 
 | System | File |
 |---|---|
-| **Windows** | `3D-Print-Cost-Setup-1.1.5.exe` (installer) — or `3D-Print-Cost-Portable-1.1.5.exe` (no installation) |
+| **Windows** | `3D-Print-Cost-Setup-1.2.0.exe` (installer) — or `3D-Print-Cost-Portable-1.2.0.exe` |
 | **macOS** | `3D-Print-Cost.dmg` — requires macOS 26 on Apple Silicon |
+| **Linux** | `3D-Print-Cost-1.2.0.AppImage` — or `3D-Print-Cost-1.2.0.deb` |
 | **Browser** | `index.html` in the repository, lite version without slicing |
 
-Neither the Windows installer nor the macOS app carries a paid code-signing certificate: on first launch each system shows a warning. The README explains how to get past it.
+The packages carry no paid code-signing certificate: systems show a warning on first launch; the README explains how to get past it.
 
 ### Upgrading from previous versions
 
