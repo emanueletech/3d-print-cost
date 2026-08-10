@@ -24,6 +24,7 @@
 |---|---|---|
 | **Windows** | Installa `3D-Print-Cost-Setup.exe` (vedi sotto) | Install `3D-Print-Cost-Setup.exe` (see below) |
 | **macOS** | Scarica `3D-Print-Cost.dmg` dalla pagina **Releases** (vedi sotto) | Download `3D-Print-Cost.dmg` from the **Releases** page (see below) |
+| **Linux** | Scarica l'`AppImage` o il `.deb` dalla pagina **Releases** (vedi sotto) | Download the `AppImage` or `.deb` from the **Releases** page (see below) |
 | **Browser** | Apri `index.html` (versione ridotta, senza slicing) | Open `index.html` (lite version, no slicing) |
 
 ---
@@ -103,6 +104,34 @@ bash native/build.sh     # compila 3D Print Cost.app
 bash native/make-dmg.sh  # crea il .dmg distribuibile
 ```
 
+---
+
+## Linux
+
+### Installazione / Install
+
+**IT**
+
+1. Scarica dalla pagina **Releases**: `3D-Print-Cost-<versione>.AppImage` (qualsiasi distribuzione) oppure `3D-Print-Cost-<versione>.deb` (Debian/Ubuntu).
+2. AppImage: rendilo eseguibile e avvialo — `chmod +x 3D-Print-Cost-*.AppImage && ./3D-Print-Cost-*.AppImage`
+3. Deb: `sudo dpkg -i 3D-Print-Cost-*.deb` (o doppio click nel gestore pacchetti).
+
+**Bambu Studio è opzionale** anche qui: i `.3mf` già slicati funzionano da soli. Se è installato in un percorso insolito (es. AppImage), indicalo da *Costi & Setup → Slicer*.
+
+**EN**
+
+1. Download from the **Releases** page: `3D-Print-Cost-<version>.AppImage` (any distro) or `3D-Print-Cost-<version>.deb` (Debian/Ubuntu).
+2. AppImage: make it executable and run it — `chmod +x 3D-Print-Cost-*.AppImage && ./3D-Print-Cost-*.AppImage`
+3. Deb: `sudo dpkg -i 3D-Print-Cost-*.deb` (or double-click in your package manager).
+
+**Bambu Studio is optional** here too: already-sliced `.3mf` work on their own. If it lives in an unusual place (e.g. an AppImage), point to it in *Costs & Setup → Slicer*.
+
+### Costruire i pacchetti / Build the packages
+
+```bash
+cd app && npm install && npm run dist:linux   # crea dist/*.AppImage e dist/*.deb
+```
+
 ## Struttura / Layout
 
 - `index.html` — versione web (lettura dei `.3mf` slicati)
@@ -111,7 +140,7 @@ bash native/make-dmg.sh  # crea il .dmg distribuibile
   - `renderer/` — interfaccia, vista 3D WebGL, traduzioni (IT/EN/ES/FR)
   - `test/` — test eseguibili con `npm test`
 - `native/` — app nativa macOS (SwiftUI) e script `.dmg`
-- `.github/workflows/` — costruzione automatica dell'installer Windows
+- `.github/workflows/` — costruzione automatica dei pacchetti (Windows, macOS, Linux)
 
 L'app desktop non richiede né `unzip` né Python: legge e riscrive i `.3mf` in JavaScript, quindi funziona su Windows senza installare nulla.
 

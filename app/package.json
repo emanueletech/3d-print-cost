@@ -12,7 +12,10 @@
     "pack": "electron-builder --dir"
   },
   "keywords": [],
-  "author": "Emanuele",
+  "author": {
+    "name": "Emanuele",
+    "email": "281643038+emanueletech@users.noreply.github.com"
+  },
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
@@ -102,10 +105,16 @@
     },
     "linux": {
       "target": [
-        "AppImage"
+        "AppImage",
+        "deb"
       ],
       "category": "Graphics",
       "icon": "build/icon.png",
+      "artifactName": "3D-Print-Cost-${version}.${ext}",
+      "synopsis": "Tempi, materiali e costo reale delle stampe 3D",
+      "maintainer": "Emanuele <281643038+emanueletech@users.noreply.github.com>"
+    },
+    "deb": {
       "artifactName": "3D-Print-Cost-${version}.${ext}"
     }
   }

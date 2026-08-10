@@ -134,6 +134,7 @@ function bambuVendorDir(bambu) {
       : [
           path.join(path.dirname(bambu), 'resources', 'profiles', 'BBL'),
           path.join(path.dirname(bambu), '..', 'resources', 'profiles', 'BBL'),
+          '/usr/share/bambu-studio/profiles/BBL', // pacchetti Linux di distribuzione
         ];
   for (const c of cands) if (fs.existsSync(path.join(c, 'machine'))) return c;
   return null;
