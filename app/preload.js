@@ -23,7 +23,7 @@ contextBridge.exposeInMainWorld('api', {
   /* 3mf & slicing */
   analyze: (p) => ipcRenderer.invoke('threemf:analyze', p),
   thumbnails: (p) => ipcRenderer.invoke('threemf:thumbnails', p),
-  slice: (p, plates) => ipcRenderer.invoke('slicer:slice', p, plates || []),
+  slice: (p, plates, printer) => ipcRenderer.invoke('slicer:slice', p, plates || [], printer || null),
   openInSlicer: (engine, p) => ipcRenderer.invoke('slicer:openIn', engine, p),
   slicerStatus: () => ipcRenderer.invoke('slicer:status'),
 

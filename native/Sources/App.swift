@@ -59,6 +59,30 @@ enum Loc {
         "openIn": ["it":"Apri in %@","en":"Open in %@","es":"Abrir en %@","fr":"Ouvrir dans %@"],
         "selAll": ["it":"Tutti","en":"All","es":"Todas","fr":"Tous"],
         "selNone": ["it":"Nessuno","en":"None","es":"Ninguna","fr":"Aucun"],
+        // confronto stampanti (v1.3)
+        "cmpTitle": ["it":"Confronto stampanti","en":"Printer comparison","es":"Comparación de impresoras","fr":"Comparaison d'imprimantes"],
+        "cmpHint": ["it":"Stesso file e stessi piatti, slicati coi profili di un'altra stampante: tempi e costi a confronto con %@.",
+                    "en":"Same file and plates, sliced with another printer's profiles: times and costs compared with %@.",
+                    "es":"Mismo archivo y placas, laminados con los perfiles de otra impresora: tiempos y costes frente a %@.",
+                    "fr":"Même fichier et mêmes plateaux, découpés avec les profils d'une autre imprimante : temps et coûts face à %@."],
+        "cmpWith": ["it":"Confronta con","en":"Compare with","es":"Comparar con","fr":"Comparer avec"],
+        "cmpRun": ["it":"Confronta","en":"Compare","es":"Comparar","fr":"Comparer"],
+        "cmpBusy": ["it":"Confronto: slicing di %@ per %@…","en":"Comparing: slicing %@ for %@…",
+                    "es":"Comparando: laminando %@ para %@…","fr":"Comparaison : découpe de %@ pour %@…"],
+        "cmpFail": ["it":"Confronto non riuscito: nessun piatto slicabile per %@",
+                    "en":"Comparison failed: no plate could be sliced for %@",
+                    "es":"Comparación fallida: ninguna placa laminable para %@",
+                    "fr":"Comparaison échouée : aucun plateau découpable pour %@"],
+        "cmpCur": ["it":"attuale","en":"current","es":"actual","fr":"actuelle"],
+        // NB: %% = simbolo % letterale (queste stringhe passano da String(format:))
+        "cmpSaves": ["it":"Con %@ spendi %@ in meno (−%@%%)","en":"With %@ you spend %@ less (−%@%%)",
+                     "es":"Con %@ gastas %@ menos (−%@%%)","fr":"Avec %@ vous dépensez %@ de moins (−%@%%)"],
+        "cmpEqual": ["it":"Costo praticamente identico con le due stampanti.","en":"Practically the same cost on both printers.",
+                     "es":"Coste prácticamente idéntico en ambas impresoras.","fr":"Coût quasiment identique sur les deux imprimantes."],
+        "cmpFailed": ["it":"Piatti non slicabili con %@: %@ — confronto sui soli piatti riusciti.",
+                      "en":"Plates not sliceable on %@: %@ — comparison covers the successful plates only.",
+                      "es":"Placas no laminables con %@: %@ — comparación solo de las placas logradas.",
+                      "fr":"Plateaux non découpables avec %@ : %@ — comparaison sur les seuls plateaux réussis."],
         "plateMoreHint": ["it":"I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.",
                           "en":"Dimmed plates aren't sliced yet: tap to select them, then hit Slice.",
                           "es":"Las placas apagadas aún no están laminadas: tócalas para seleccionarlas y pulsa Laminar.",
@@ -622,6 +646,84 @@ final class AppModel: ObservableObject {
                     }
                 }
                 self.objectWillChange.send()
+            }
+        }
+    }
+
+    // MARK: - Confronto stampanti (v1.3)
+
+    /// un lato della tabella comparativa: numeri e costo dei piatti per UNA stampante
+    struct CompareSide {
+        let printer: String
+        let seconds: Double
+        let grams: Double
+        let kWh: Double
+        let plateCount: Int
+        let cost: CostBreakdown
+    }
+    struct CompareData: Identifiable {
+        let id = UUID()
+        let file: String
+        let a: CompareSide      // stampante attuale, numeri già sulla scheda
+        let b: CompareSide      // l'altra stampante, appena slicata
+        let bFailed: [Int]      // piatti che coi profili di B non si sono slicati
+    }
+    @Published var compareData: CompareData? = nil
+
+    /// stampanti Bambu proponibili come secondo termine di confronto
+    var compareTargets: [PrinterProfile] {
+        printersDB.filter { $0.slicing?.engine == "bambu" && $0.id != selectedPrinter?.id }
+    }
+
+    /// costo dei piatti dati coi parametri di una stampante (kwh/fallimenti globali)
+    func sideBreakdown(_ plates: [PlateInfo], printer: PrinterProfile) -> CompareSide {
+        var per: [String: Double] = [:]
+        var secs = 0.0, grams = 0.0
+        for p in plates {
+            secs += p.seconds; grams += p.grams
+            for (k, g) in p.colorGrams { per[k, default: 0] += g }
+        }
+        var b = CostBreakdown()
+        for (k, g) in per {
+            let parts = k.split(separator: "|", maxSplits: 1).map(String.init)
+            let perKg = material(forHex: parts[0], type: parts.count > 1 ? parts[1] : "PLA Basic")?.effectiveCostPerKg ?? fallbackCostPerKg
+            b.material += g / 1000 * perKg
+        }
+        let hours = secs / 3600
+        b.energy = hours * printer.watts / 1000 * kwh
+        b.wear = hours * printer.wearPerHour
+        b.setup = Double(plates.count) * printer.setupCost
+        b.failure = b.base * failurePct / 100
+        return CompareSide(printer: printer.name, seconds: secs, grams: grams,
+                           kWh: hours * printer.watts / 1000, plateCount: plates.count, cost: b)
+    }
+
+    /// Slica gli stessi piatti coi profili dell'altra stampante e apre la tabella comparativa.
+    func compare(_ f: LoadedFile, with target: PrinterProfile) {
+        guard let cur = selectedPrinter, f.analysis != nil else { return }
+        let platesA = f.includedPlates
+        let sel = platesA.map { $0.index }.sorted()
+        guard !sel.isEmpty else { return }
+        let path = f.path, name = f.name
+        let nz = nozzle, lh = layerHeight, spec = target.slicing
+        let base = String(format: t("cmpBusy"), name, target.name)
+        busy = base
+        Task.detached {
+            let st = Slicer.slice(path, plates: sel, nozzle: nz, layer: lh, spec: spec) { k, total in
+                let pct = Int(Double(k - 1) / Double(total) * 100)
+                Task { @MainActor in self.busy = base + "  ·  \(k)/\(total) · \(pct)%" }
+            }
+            await MainActor.run {
+                self.busy = nil
+                guard case .sliced(let res) = st, !res.plates.isEmpty else {
+                    if case .error("noBambu") = st { self.flash("noBambuShort") }
+                    else { self.flashText(String(format: self.t("cmpFail"), target.name)) }
+                    return
+                }
+                self.compareData = CompareData(file: name,
+                                               a: self.sideBreakdown(platesA, printer: cur),
+                                               b: self.sideBreakdown(res.plates, printer: target),
+                                               bFailed: res.failed)
             }
         }
     }

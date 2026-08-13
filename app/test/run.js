@@ -355,5 +355,46 @@ check('il rimappato segue il letto della macchina di destinazione', () => {
   assert.strictEqual(cfg.printable_height, '250', 'altezza della macchina passata');
 });
 
+/* ---------- costo per file (v1.3, confronto stampanti) ---------- */
+
+console.log('costo');
+const cost = require('../renderer/cost');
+check('scompone il costo di un insieme di piatti', () => {
+  const plates = [
+    { index: 1, seconds: 3600, grams: 100, colorGrams: { '#FFFFFF|PLA Basic': 100 } },
+    { index: 2, seconds: 1800, grams: 50, colorGrams: { '#000000|PLA Matte': 50 } },
+  ];
+  const b = cost.breakdown(plates, {
+    watts: 100, kwh: 0.2, wearPerHour: 0.1, setupCost: 0.5, failurePct: 10, perKg: () => 20,
+  });
+  assert.strictEqual(b.seconds, 5400);
+  assert.strictEqual(b.grams, 150);
+  assert.ok(Math.abs(b.material - 3) < 1e-9, '150 g × 20 €/kg');
+  assert.ok(Math.abs(b.kWh - 0.15) < 1e-9, '1,5 h × 100 W');
+  assert.ok(Math.abs(b.energy - 0.03) < 1e-9);
+  assert.ok(Math.abs(b.wear - 0.15) < 1e-9);
+  assert.ok(Math.abs(b.setup - 1) < 1e-9, '2 piatti × 0,50 €');
+  assert.ok(Math.abs(b.total - 4.18 * 1.1) < 1e-9, 'base + 10% fallimenti');
+});
+check('il prezzo al kg arriva da colore e tipo del piatto', () => {
+  const plates = [{ index: 1, seconds: 0, grams: 1000, colorGrams: { '#C12E1F|PLA Basic': 1000 } }];
+  const b = cost.breakdown(plates, {
+    watts: 0, kwh: 0, wearPerHour: 0, setupCost: 0, failurePct: 0,
+    perKg: (hex, type) => (hex === '#C12E1F' && type === 'PLA Basic' ? 25 : 0),
+  });
+  assert.strictEqual(b.material, 25);
+  assert.strictEqual(b.total, 25);
+});
+check('due stampanti sugli stessi piatti: cambia solo la parte macchina', () => {
+  const plates = [{ index: 1, seconds: 7200, grams: 200, colorGrams: { '#FFFFFF|PLA Basic': 200 } }];
+  const shared = { kwh: 0.25, failurePct: 0, perKg: () => 20 };
+  const a = cost.breakdown(plates, { ...shared, watts: 180, wearPerHour: 0.12, setupCost: 0.15 });
+  const b = cost.breakdown(plates, { ...shared, watts: 80, wearPerHour: 0.04, setupCost: 0.15 });
+  assert.strictEqual(a.material, b.material, 'stesso materiale');
+  assert.strictEqual(a.setup, b.setup, 'stesso setup');
+  assert.ok(a.energy > b.energy, 'più watt → più energia');
+  assert.ok(a.total > b.total, 'la macchina più energivora costa di più');
+});
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log(`\n${passed} test superati.`);

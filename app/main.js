@@ -33,9 +33,10 @@ function resourcesDir() {
 function profilesDir() {
   return path.join(resourcesDir(), 'profiles');
 }
-function slicerOpts() {
+function slicerOpts(printerName) {
   const printers = (state && state.printers) || [];
-  const sel = printers.find((p) => p.name === state.selPrinter) || printers[0] || {};
+  // di norma comanda la stampante selezionata; il confronto (v1.3) ne indica un'altra
+  const sel = printers.find((p) => p.name === (printerName || state.selPrinter)) || printers[0] || {};
   return {
     profilesDir: profilesDir(),
     bambuPath: state && state.bambuPath ? state.bambuPath : '',
@@ -291,9 +292,9 @@ function registerIPC() {
 
   ipcMain.handle('threemf:analyze', (_e, file) => threemf.analyze(file));
   ipcMain.handle('threemf:thumbnails', (_e, file) => threemf.thumbnails(file));
-  ipcMain.handle('slicer:slice', (_e, file, plates) =>
+  ipcMain.handle('slicer:slice', (_e, file, plates, printerName) =>
     slicer.slice(file, {
-      ...slicerOpts(),
+      ...slicerOpts(typeof printerName === 'string' ? printerName : undefined),
       plates: Array.isArray(plates) ? plates : [],
       onProgress: (done, total) => { if (win) win.webContents.send('slice-progress', { done, total }); },
     }));

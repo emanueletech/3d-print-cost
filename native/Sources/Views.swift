@@ -44,6 +44,8 @@ struct RootView: View {
             if !m.unlocked { GateView() }        // schermata di sblocco all'avvio
         }
         .preferredColorScheme(.dark)
+        // tabella del confronto stampanti (v1.3)
+        .sheet(item: $m.compareData) { d in CompareSheet(d: d).environmentObject(m) }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in
             for p in providers {
                 _ = p.loadObject(ofClass: URL.self) { url, _ in
@@ -548,6 +550,7 @@ struct FilesView: View {
 struct FileCard: View {
     @EnvironmentObject var m: AppModel
     @ObservedObject var f: LoadedFile
+    @State private var showCompare = false
     var body: some View {
         GlassCard(pad: 12) {
             VStack(alignment: .leading, spacing: 10) {
@@ -567,6 +570,14 @@ struct FileCard: View {
                         if !f.toSlice.isEmpty {
                             Button("\(m.t("slice")) (\(f.toSlice.count))") { m.slice(f) }
                                 .buttonStyle(.borderedProminent).controlSize(.small).tint(.orange)
+                        }
+                        // confronto con un'altra stampante Bambu (v1.3)
+                        if !m.compareTargets.isEmpty {
+                            Button { showCompare = true } label: { Image(systemName: "arrow.left.arrow.right") }
+                                .buttonStyle(.plain).foregroundStyle(.secondary).help(m.t("cmpTitle"))
+                                .popover(isPresented: $showCompare, arrowEdge: .bottom) {
+                                    ComparePicker(f: f) { showCompare = false }.environmentObject(m)
+                                }
                         }
                         // rislica da capo col setup attuale (stampante/ugello/layer)
                         Button { m.slice(f, fresh: true) } label: { Image(systemName: "arrow.clockwise") }
@@ -668,6 +679,109 @@ struct FileCard: View {
             Text(v).font(.system(size: 13, weight: .semibold)).monospacedDigit()
             Text(k.uppercased()).font(.system(size: 8.5, weight: .semibold)).foregroundStyle(.secondary).tracking(0.5)
         }.frame(minWidth: 56, alignment: .trailing)
+    }
+}
+
+// MARK: - Confronto stampanti (v1.3)
+
+/// popover di scelta: con quale altra stampante Bambu confrontare il file
+struct ComparePicker: View {
+    @EnvironmentObject var m: AppModel
+    let f: LoadedFile
+    var dismiss: () -> Void
+    @State private var targetID: UUID? = nil
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label(m.t("cmpTitle"), systemImage: "arrow.left.arrow.right")
+                .font(.system(size: 13, weight: .semibold))
+            Text(String(format: m.t("cmpHint"), m.selectedPrinter?.name ?? "—"))
+                .font(.system(size: 11)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true).frame(width: 260, alignment: .leading)
+            Picker(m.t("cmpWith"), selection: $targetID) {
+                ForEach(m.compareTargets) { p in Text(p.name).tag(Optional(p.id)) }
+            }.pickerStyle(.menu)
+            HStack {
+                Spacer()
+                Button(m.t("cmpRun")) {
+                    if let id = targetID ?? m.compareTargets.first?.id,
+                       let p = m.printersDB.first(where: { $0.id == id }) {
+                        dismiss()
+                        m.compare(f, with: p)
+                    }
+                }.buttonStyle(.borderedProminent).controlSize(.small)
+            }
+        }
+        .padding(16)
+        .onAppear { if targetID == nil { targetID = m.compareTargets.first?.id } }
+    }
+}
+
+/// tabella comparativa: stessi piatti, due stampanti
+struct CompareSheet: View {
+    @EnvironmentObject var m: AppModel
+    let d: AppModel.CompareData
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "arrow.left.arrow.right").foregroundStyle(.secondary)
+                Text("\(m.t("cmpTitle")) — \(d.file)").font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                Spacer()
+                Button { m.compareData = nil } label: { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
+            }
+            let delta = d.a.cost.total - d.b.cost.total
+            let even = abs(delta) < 0.005
+            Grid(alignment: .trailing, horizontalSpacing: 22, verticalSpacing: 7) {
+                GridRow {
+                    Text("").gridColumnAlignment(.leading)
+                    VStack(alignment: .trailing, spacing: 1) {
+                        Text(d.a.printer).font(.system(size: 12.5, weight: .semibold))
+                        Text(m.t("cmpCur").uppercased()).font(.system(size: 8.5, weight: .semibold))
+                            .foregroundStyle(.secondary).tracking(0.5)
+                    }
+                    Text(d.b.printer).font(.system(size: 12.5, weight: .semibold))
+                }
+                Divider()
+                row(m.t("thTime"), hms(d.a.seconds), hms(d.b.seconds))
+                row(m.t("thGrams"), "\(Int(d.a.grams)) g", "\(Int(d.b.grams)) g")
+                row(m.t("kEnergy"), String(format: "%.2f kWh", d.a.kWh), String(format: "%.2f kWh", d.b.kWh))
+                row(m.t("cMaterial"), eur(d.a.cost.material), eur(d.b.cost.material))
+                row(m.t("cEnergy"), eur(d.a.cost.energy), eur(d.b.cost.energy))
+                row(m.t("cWear"), eur(d.a.cost.wear), eur(d.b.cost.wear))
+                row(m.t("cSetup"), eur(d.a.cost.setup), eur(d.b.cost.setup))
+                row(m.t("cFailure"), eur(d.a.cost.failure), eur(d.b.cost.failure))
+                Divider()
+                row(m.t("cTotal"), eur(d.a.cost.total), eur(d.b.cost.total), bold: true,
+                    aWin: !even && delta < 0, bWin: !even && delta > 0)
+            }
+            // frase finale: chi fa risparmiare e quanto (percentuale sul totale più caro)
+            if even {
+                Text(m.t("cmpEqual")).font(.system(size: 12.5))
+            } else {
+                let winner = delta > 0 ? d.b.printer : d.a.printer
+                let pct = abs(delta) / max(d.a.cost.total, d.b.cost.total) * 100
+                Text(String(format: m.t("cmpSaves"), winner, eur(abs(delta)), String(format: "%.0f", pct)))
+                    .font(.system(size: 12.5))
+            }
+            if !d.bFailed.isEmpty {
+                Label(String(format: m.t("cmpFailed"), d.b.printer,
+                             d.bFailed.map(String.init).joined(separator: ", ")),
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11.5)).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(20).frame(width: 540)
+        .preferredColorScheme(.dark)
+    }
+    @ViewBuilder func row(_ k: String, _ a: String, _ b: String,
+                          bold: Bool = false, aWin: Bool = false, bWin: Bool = false) -> some View {
+        GridRow {
+            Text(k).foregroundStyle(.secondary).gridColumnAlignment(.leading)
+            Text(a).fontWeight(bold ? .bold : .regular).foregroundStyle(aWin ? Color.green : Color.primary)
+            Text(b).fontWeight(bold ? .bold : .regular).foregroundStyle(bWin ? Color.green : Color.primary)
+        }
+        .font(.system(size: 13)).monospacedDigit()
     }
 }
 

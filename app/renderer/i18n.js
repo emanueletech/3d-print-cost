@@ -84,6 +84,47 @@
     },
     selAll: { it: 'Tutti', en: 'All', es: 'Todas', fr: 'Tous' },
     selNone: { it: 'Nessuno', en: 'None', es: 'Ninguna', fr: 'Aucun' },
+    // confronto stampanti (v1.3)
+    cmpTitle: { it: 'Confronto stampanti', en: 'Printer comparison', es: 'Comparación de impresoras', fr: "Comparaison d'imprimantes" },
+    cmpHint: {
+      it: 'Stesso file e stessi piatti, slicati coi profili di un’altra stampante: tempi e costi a confronto con %@.',
+      en: 'Same file and plates, sliced with another printer’s profiles: times and costs compared with %@.',
+      es: 'Mismo archivo y placas, laminados con los perfiles de otra impresora: tiempos y costes frente a %@.',
+      fr: 'Même fichier et mêmes plateaux, découpés avec les profils d’une autre imprimante : temps et coûts face à %@.',
+    },
+    cmpWith: { it: 'Confronta con', en: 'Compare with', es: 'Comparar con', fr: 'Comparer avec' },
+    cmpRun: { it: 'Confronta', en: 'Compare', es: 'Comparar', fr: 'Comparer' },
+    cmpBusy: {
+      it: 'Confronto: slicing di %@ per %@…',
+      en: 'Comparing: slicing %@ for %@…',
+      es: 'Comparando: laminando %@ para %@…',
+      fr: 'Comparaison : découpe de %@ pour %@…',
+    },
+    cmpFail: {
+      it: 'Confronto non riuscito: nessun piatto slicabile per %@',
+      en: 'Comparison failed: no plate could be sliced for %@',
+      es: 'Comparación fallida: ninguna placa laminable para %@',
+      fr: 'Comparaison échouée : aucun plateau découpable pour %@',
+    },
+    cmpCur: { it: 'attuale', en: 'current', es: 'actual', fr: 'actuelle' },
+    cmpSaves: {
+      it: 'Con %@ spendi %@ in meno (−%@%)',
+      en: 'With %@ you spend %@ less (−%@%)',
+      es: 'Con %@ gastas %@ menos (−%@%)',
+      fr: 'Avec %@ vous dépensez %@ de moins (−%@%)',
+    },
+    cmpEqual: {
+      it: 'Costo praticamente identico con le due stampanti.',
+      en: 'Practically the same cost on both printers.',
+      es: 'Coste prácticamente idéntico en ambas impresoras.',
+      fr: 'Coût quasiment identique sur les deux imprimantes.',
+    },
+    cmpFailed: {
+      it: 'Piatti non slicabili con %@: %@ — confronto sui soli piatti riusciti.',
+      en: 'Plates not sliceable on %@: %@ — comparison covers the successful plates only.',
+      es: 'Placas no laminables con %@: %@ — comparación solo de las placas logradas.',
+      fr: 'Plateaux non découpables avec %@ : %@ — comparaison sur les seuls plateaux réussis.',
+    },
     plateMoreHint: {
       it: 'I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.',
       en: "Dimmed plates aren't sliced yet: tap to select them, then hit Slice.",

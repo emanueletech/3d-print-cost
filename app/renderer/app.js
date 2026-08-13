@@ -350,9 +350,9 @@
     const spSpec = selectedPrinter().slicing;
     if (spSpec && spSpec.engine !== 'bambu')
       toast(fmt(t('sliceOtherNote'), selectedPrinter().name, slicerAppName(spSpec.engine)));
-    M.busyName = file.name;
+    M.busyBase = fmt(t('busy'), file.name);
     const res = await api.slice(file.path, sel);
-    M.busyName = null;
+    M.busyBase = null;
     setBusy(null);
     if (res.error === 'noBambu') return toast(t('bambuMissing'));
     if (res.error) return toast(fmt(t('errSliceFail'), file.name));
@@ -371,6 +371,119 @@
     if (res.failed && res.failed.length) toast(fmt(t('platesFailed'), res.failed.join(', ')));
     else toast(fmt(t('okSliced'), file.name));
     render();
+  }
+
+  /* ---------- confronto stampanti (v1.3) ---------- */
+
+  /** stampanti Bambu proponibili come secondo termine di confronto */
+  const compareTargets = () =>
+    M.store.printers.filter((p) => p.slicing && p.slicing.engine === 'bambu' && p.name !== selectedPrinter().name);
+
+  /** scelta della stampante con cui confrontare il file */
+  function showComparePicker(file) {
+    const targets = compareTargets();
+    if (!targets.length) return;
+    const ov = document.createElement('div');
+    ov.className = 'pop-overlay';
+    ov.innerHTML = `<div class="pop-card cmp-pick">
+      <div class="k">⇄ ${esc(t('cmpTitle'))}</div>
+      <div class="note">${esc(fmt(t('cmpHint'), selectedPrinter().name))}</div>
+      <label class="field"><span>${esc(t('cmpWith'))}</span>
+        <select id="cmpSel">${targets.map((p) => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('')}</select></label>
+      <button class="btn primary" id="cmpGo">${esc(t('cmpRun'))}</button></div>`;
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) ov.remove();
+    });
+    $('#cmpGo', ov).addEventListener('click', () => {
+      const name = $('#cmpSel', ov).value;
+      ov.remove();
+      runCompare(file, name);
+    });
+    document.body.appendChild(ov);
+  }
+
+  /** slice del file con i profili dell'altra stampante, poi tabella comparativa */
+  async function runCompare(file, targetName) {
+    const target = M.store.printers.find((p) => p.name === targetName);
+    if (!target || !file.analysis) return;
+    // stessi piatti dei numeri correnti: quelli con dati, non esclusi
+    const sel = file.analysis.plates.filter((p) => !file.excluded.has(p.index)).map((p) => p.index);
+    if (!sel.length) return;
+    M.busyBase = fmt(t('cmpBusy'), file.name, target.name);
+    setBusy(M.busyBase);
+    const res = await api.slice(file.path, sel, target.name);
+    M.busyBase = null;
+    setBusy(null);
+    if (res.error === 'noBambu') return toast(t('bambuMissing'));
+    if (res.error || !res.plates || !res.plates.length) return toast(fmt(t('cmpFail'), target.name));
+    showCompareResult(file, target, res);
+  }
+
+  /** costo dei piatti dati coi parametri di UNA stampante (kwh/fallimenti globali) */
+  function sideBreakdown(plates, printer) {
+    return window.CostLib.breakdown(plates, {
+      watts: num(printer.watts),
+      wearPerHour: num(printer.wearPerHour),
+      setupCost: num(printer.setupCost),
+      kwh: num(M.store.kwh),
+      failurePct: num(M.store.failurePct),
+      perKg: (hex, type) => {
+        const m = materialFor(hex, type);
+        return m ? effectiveCostPerKg(m) : fallbackCostPerKg();
+      },
+    });
+  }
+
+  function showCompareResult(file, target, res) {
+    const cur = selectedPrinter();
+    const a = sideBreakdown(file.analysis.plates.filter((p) => !file.excluded.has(p.index)), cur);
+    const b = sideBreakdown(res.plates, target);
+
+    const row = (k, va, vb, cls = '') =>
+      `<tr class="${cls}"><td>${esc(t(k))}</td><td class="n">${esc(va)}</td><td class="n">${esc(vb)}</td></tr>`;
+    const d = a.total - b.total;
+    const even = Math.abs(d) < 0.005;
+    const winA = !even && d < 0;
+    const winB = !even && d > 0;
+
+    const rows =
+      row('thTime', hms(a.seconds), hms(b.seconds)) +
+      row('thGrams', `${Math.round(a.grams)} g`, `${Math.round(b.grams)} g`) +
+      row('kEnergy', `${a.kWh.toFixed(2)} kWh`, `${b.kWh.toFixed(2)} kWh`) +
+      row('cMaterial', eur(a.material), eur(b.material)) +
+      row('cEnergy', eur(a.energy), eur(b.energy)) +
+      row('cWear', eur(a.wear), eur(b.wear)) +
+      row('cSetup', eur(a.setup), eur(b.setup)) +
+      row('cFailure', eur(a.failure), eur(b.failure)) +
+      `<tr class="tot"><td><b>${esc(t('cTotal'))}</b></td>
+        <td class="n b${winA ? ' green' : ''}">${esc(eur(a.total))}</td>
+        <td class="n b${winB ? ' green' : ''}">${esc(eur(b.total))}</td></tr>`;
+
+    // frase finale: chi fa risparmiare e quanto (percentuale sul totale più caro)
+    let verdict;
+    if (even) verdict = t('cmpEqual');
+    else {
+      const winner = winB ? target.name : cur.name;
+      const pct = ((Math.abs(d) / Math.max(a.total, b.total)) * 100).toFixed(0);
+      verdict = fmt(t('cmpSaves'), winner, eur(Math.abs(d)), pct);
+    }
+    const failNote = res.failed && res.failed.length
+      ? `<div class="note warn">⚠️ ${esc(fmt(t('cmpFailed'), target.name, res.failed.join(', ')))}</div>`
+      : '';
+
+    const ov = document.createElement('div');
+    ov.className = 'pop-overlay';
+    ov.innerHTML = `<div class="pop-card cmp-card">
+      <div class="k">⇄ ${esc(t('cmpTitle'))} — ${esc(file.name)}</div>
+      <table class="tbl cmp"><thead><tr><th></th>
+        <th class="n">${esc(cur.name)} <span class="dim">· ${esc(t('cmpCur'))}</span></th>
+        <th class="n">${esc(target.name)}</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+      <div class="note verdict">${esc(verdict)}</div>${failNote}</div>`;
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) ov.remove();
+    });
+    document.body.appendChild(ov);
   }
 
   /* ---------- viste ---------- */
@@ -597,9 +710,14 @@
           <button class="lnk" data-selnone="${f.id}">${esc(t('selNone'))}</button></div>`
       : '';
 
+    // confronto con un'altra stampante Bambu: solo su file con dati e con Bambu Studio presente
+    const cmp = f.analysis && M.bambu && compareTargets().length
+      ? `<button class="x" data-compare="${f.id}" title="${esc(t('cmpTitle'))}">⇄</button>`
+      : '';
     return card(`<div class="frow">
         <span class="fname">📄 ${esc(f.name)}</span>
         <div class="fstats">${head}${more}</div>
+        ${cmp}
         ${f.analysis ? `<button class="x" data-reslice="${f.id}" title="${esc(t('reslice'))}">⟳</button>` : ''}
         <button class="x" data-del="${f.id}">✕</button>
       </div>${thumbs}`, 'file');
@@ -1059,6 +1177,12 @@
         return f && sliceFile(f, true);
       }
 
+      const cmp = hit('data-compare');
+      if (cmp) {
+        const f = M.files.find((x) => x.id === +cmp.getAttribute('data-compare'));
+        return f && showComparePicker(f);
+      }
+
       const opin = hit('data-openin');
       if (opin) {
         const f = M.files.find((x) => x.id === +opin.getAttribute('data-openin'));
@@ -1352,9 +1476,9 @@
     api.onOpenFiles((files) => addPaths(files));
     // avanzamento piatto per piatto nella barra di lavoro
     api.onSliceProgress(({ done, total }) => {
-      if (!M.busyName) return;
+      if (!M.busyBase) return;
       const pct = Math.round(((done - 1) / total) * 100);
-      setBusy(`${fmt(t('busy'), M.busyName)}  ·  ${done}/${total} · ${pct}%`);
+      setBusy(`${M.busyBase}  ·  ${done}/${total} · ${pct}%`);
     });
     api.onUpdate((tag) => {
       const bar = document.createElement('div');

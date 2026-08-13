@@ -464,6 +464,17 @@ input, textarea { user-select: text; }
 .pop-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pop-row b { font-variant-numeric: tabular-nums; }
 
+/* confronto stampanti (v1.3) */
+.cmp-pick { display: flex; flex-direction: column; gap: 12px; min-width: 320px; }
+.cmp-pick .k { margin-bottom: 0; }
+.cmp-pick .btn { align-self: flex-end; }
+.cmp-card { min-width: 480px; max-width: 560px; }
+.cmp-card .tbl.cmp { width: 100%; margin: 4px 0 10px; }
+.cmp-card .tbl.cmp th, .cmp-card .tbl.cmp td { padding: 7px 10px; }
+.cmp-card .tbl.cmp th .dim { font-weight: 500; text-transform: none; letter-spacing: 0; }
+.cmp-card .verdict { font-size: 12.5px; color: var(--txt); }
+.cmp-card .note.warn { margin-top: 10px; }
+
 /* chip dei colori usati nel progetto (sezione Materiali) */
 .usedchips { display: flex; flex-wrap: wrap; gap: 8px; }
 .uchip {
