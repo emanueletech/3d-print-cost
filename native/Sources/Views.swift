@@ -956,6 +956,11 @@ func logoNSImage(_ s: String?) -> NSImage? {
 
 struct QuoteView: View {
     @EnvironmentObject var m: AppModel
+    // testo locale dei campi numerici: aggiorna il modello a ogni battuta,
+    // così l'anteprima segue subito (TextField(value:format:) applica solo con Invio)
+    @State private var pctText = ""
+    @State private var flatText = ""
+    @State private var validityText = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(m.t("sQuote")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
@@ -1008,17 +1013,27 @@ struct QuoteView: View {
                     }.pickerStyle(.segmented).labelsHidden()
                     HStack(spacing: 6) {
                         if m.quote.mode == "flat" {
-                            TextField("", value: $m.quote.flat, format: .number).frame(width: 80)
+                            TextField("", text: $flatText).frame(width: 80)
+                                .onAppear { flatText = String(format: "%g", m.quote.flat) }
+                                .onChange(of: flatText) { _, v in
+                                    if let d = Double(v.replacingOccurrences(of: ",", with: ".")) { m.quote.flat = d }
+                                }
                             Text("€").foregroundStyle(.secondary)
                         } else {
-                            TextField("", value: $m.quote.pct, format: .number).frame(width: 80)
+                            TextField("", text: $pctText).frame(width: 80)
+                                .onAppear { pctText = String(format: "%g", m.quote.pct) }
+                                .onChange(of: pctText) { _, v in
+                                    if let d = Double(v.replacingOccurrences(of: ",", with: ".")) { m.quote.pct = d }
+                                }
                             Text("%").foregroundStyle(.secondary)
                         }
                     }
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text(m.t("qValidity").uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
-                    TextField("", value: $m.quote.validity, format: .number).frame(width: 80)
+                    TextField("", text: $validityText).frame(width: 80)
+                        .onAppear { validityText = String(m.quote.validity) }
+                        .onChange(of: validityText) { _, v in if let i = Int(v), i > 0 { m.quote.validity = i } }
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text(m.t("qNotes").uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
@@ -1079,8 +1094,10 @@ struct QuoteView: View {
 }
 
 /// Il foglio del preventivo: carta bianca, stessa resa a schermo e nel PDF.
+/// @ObservedObject è essenziale: con un riferimento semplice SwiftUI vedrebbe
+/// la vista "immutata" e l'anteprima non seguirebbe ciò che si scrive nel modulo.
 struct QuotePaper: View {
-    let m: AppModel
+    @ObservedObject var m: AppModel
     var body: some View {
         let ink = Color(red: 0.13, green: 0.14, blue: 0.17)
         let dim = Color(red: 0.42, green: 0.44, blue: 0.51)
