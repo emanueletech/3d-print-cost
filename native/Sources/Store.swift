@@ -143,6 +143,7 @@ struct PrinterProfile: Identifiable, Codable, Hashable {
 struct QuoteSettings: Codable, Hashable {
     var biz = ""
     var contact = ""
+    var logo: String? = nil // data URL (base64) del logo caricato — opzionale per i vecchi store
     var mode = "pct"        // "pct" | "flat"
     var pct: Double = 30
     var flat: Double = 10

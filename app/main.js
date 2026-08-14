@@ -381,6 +381,26 @@ function registerIPC() {
     return true;
   });
 
+  /** logo per il preventivo (v1.3): l'immagine diventa un data URL nello store,
+      così il preventivo resta autonomo anche se il file originale sparisce */
+  ipcMain.handle('quote:pickLogo', async () => {
+    const r = await dialog.showOpenDialog(win, {
+      filters: [{ name: 'PNG · JPG · WebP', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
+      properties: ['openFile'],
+    });
+    if (r.canceled || !r.filePaths[0]) return null;
+    try {
+      const p = r.filePaths[0];
+      const data = fs.readFileSync(p);
+      if (data.length > 2 * 1024 * 1024) return { error: 'big' };
+      const ext = path.extname(p).toLowerCase().replace('.', '');
+      const mime = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' }[ext] || 'image/png';
+      return `data:${mime};base64,${data.toString('base64')}`;
+    } catch {
+      return null;
+    }
+  });
+
   /** export PDF del preventivo (v1.3): l'HTML arriva pronto dal renderer e si
       stampa da una finestra nascosta, così la pagina dell'app non c'entra nulla */
   ipcMain.handle('quote:exportPDF', async (_e, name, html) => {

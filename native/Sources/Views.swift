@@ -246,6 +246,35 @@ struct Detail: View {
     }
 }
 
+/// Etichetta immediata al passaggio del mouse: i tooltip di sistema (.help)
+/// compaiono dopo circa un secondo e i pulsanti-icona restavano muti.
+struct HoverHint: ViewModifier {
+    let text: String
+    @State private var over = false
+    func body(content: Content) -> some View {
+        content
+            .onHover { over = $0 }
+            .overlay(alignment: .topTrailing) {
+                if over {
+                    Text(text)
+                        .font(.system(size: 10.5, weight: .medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(Capsule().fill(.black.opacity(0.88)))
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.16)))
+                        .fixedSize()
+                        .offset(y: -27)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.12), value: over)
+    }
+}
+extension View {
+    func hoverHint(_ text: String) -> some View { modifier(HoverHint(text: text)) }
+}
+
 // Card di vetro ben definita: materiale + bordo luminoso + ombra.
 struct GlassCard<Content: View>: View {
     var pad: CGFloat = 16
@@ -577,18 +606,21 @@ struct FileCard: View {
                         Button { m.logEntry(name: f.name.replacingOccurrences(of: ".3mf", with: ""),
                                             plates: f.includedPlates) } label: {
                             Image(systemName: "tray.and.arrow.down")
-                        }.buttonStyle(.plain).foregroundStyle(.secondary).help(m.t("histSave"))
+                        }.buttonStyle(.plain).foregroundStyle(.secondary)
+                            .help(m.t("histSave")).hoverHint(m.t("histSave"))
                         // confronto con un'altra stampante Bambu (v1.3)
                         if !m.compareTargets.isEmpty {
                             Button { showCompare = true } label: { Image(systemName: "arrow.left.arrow.right") }
-                                .buttonStyle(.plain).foregroundStyle(.secondary).help(m.t("cmpTitle"))
+                                .buttonStyle(.plain).foregroundStyle(.secondary)
+                                .help(m.t("cmpTip")).hoverHint(m.t("cmpTip"))
                                 .popover(isPresented: $showCompare, arrowEdge: .bottom) {
                                     ComparePicker(f: f) { showCompare = false }.environmentObject(m)
                                 }
                         }
                         // rislica da capo col setup attuale (stampante/ugello/layer)
                         Button { m.slice(f, fresh: true) } label: { Image(systemName: "arrow.clockwise") }
-                            .buttonStyle(.plain).foregroundStyle(.secondary).help(m.t("reslice"))
+                            .buttonStyle(.plain).foregroundStyle(.secondary)
+                            .help(m.t("reslice")).hoverHint(m.t("reslice"))
                     } else {
                         if case .error(let e) = f.state {
                             Label(m.t(e == "noBambu" ? "noBambuShort" : "sliceFailed"), systemImage: "exclamationmark.triangle.fill")
@@ -915,6 +947,13 @@ struct HistoryView: View {
 
 // MARK: - Preventivo per clienti (v1.3)
 
+/// decodifica il logo salvato come data URL ("data:image/png;base64,…")
+func logoNSImage(_ s: String?) -> NSImage? {
+    guard let s, s.hasPrefix("data:"), let comma = s.firstIndex(of: ","),
+          let d = Data(base64Encoded: String(s[s.index(after: comma)...])) else { return nil }
+    return NSImage(data: d)
+}
+
 struct QuoteView: View {
     @EnvironmentObject var m: AppModel
     var body: some View {
@@ -937,8 +976,29 @@ struct QuoteView: View {
     var form: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: 11) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(m.t("qLogo").uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
+                    HStack(spacing: 8) {
+                        if let img = logoNSImage(m.quote.logo) {
+                            Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
+                                .frame(height: 30)
+                                .padding(.horizontal, 7).padding(.vertical, 3)
+                                .background(RoundedRectangle(cornerRadius: 6).fill(Color.white))
+                            Button { m.quote.logo = nil } label: { Image(systemName: "xmark.circle.fill") }
+                                .buttonStyle(.plain).foregroundStyle(.secondary).help(m.t("qLogoDel"))
+                        } else {
+                            Button(m.t("qLogoPick")) { pickLogo() }.controlSize(.small)
+                        }
+                    }
+                }
                 field(m.t("qBiz"), $m.quote.biz)
-                field(m.t("qContact"), $m.quote.contact)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(m.t("qContact").uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
+                    TextEditor(text: $m.quote.contact)
+                        .font(.system(size: 12.5)).frame(height: 48)
+                        .scrollContentBackground(.hidden)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.07)))
+                }
                 field(m.t("qClient"), $m.quoteClient)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(m.t("qMargin").uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
@@ -982,6 +1042,19 @@ struct QuoteView: View {
         }
     }
 
+    /// logo del preventivo: l'immagine diventa un data URL nello store,
+    /// così il documento resta autonomo anche se il file originale sparisce
+    func pickLogo() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .webP]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url,
+              let data = try? Data(contentsOf: url) else { return }
+        guard data.count <= 2 * 1024 * 1024 else { m.flash("qLogoBig"); return }
+        let mime = ["png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"][url.pathExtension.lowercased()] ?? "image/png"
+        m.quote.logo = "data:\(mime);base64,\(data.base64EncodedString())"
+    }
+
     /// PDF A4 dal medesimo QuotePaper dell'anteprima (ImageRenderer → CGContext PDF)
     @MainActor func exportPDF() {
         let panel = NSSavePanel()
@@ -1017,11 +1090,18 @@ struct QuotePaper: View {
         let names = m.loaded.map { $0.name.replacingOccurrences(of: ".3mf", with: "") }.joined(separator: ", ")
 
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top) {
+            HStack(alignment: .top, spacing: 14) {
+                if let img = logoNSImage(q.logo) {
+                    Image(nsImage: img).resizable().aspectRatio(contentMode: .fit)
+                        .frame(height: 52).frame(maxWidth: 150, alignment: .leading)
+                }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(q.biz.isEmpty ? m.t("qBizPlaceholder") : q.biz)
                         .font(.system(size: 20, weight: .bold, design: .serif))
-                    if !q.contact.isEmpty { Text(q.contact).font(.system(size: 10)).foregroundStyle(dim) }
+                    if !q.contact.isEmpty {
+                        Text(q.contact).font(.system(size: 10)).foregroundStyle(dim)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 Spacer()
                 Text(m.t("qTitle").uppercased()).font(.system(size: 11, weight: .semibold)).tracking(2.5).foregroundStyle(dim)

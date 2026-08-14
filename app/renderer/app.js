@@ -616,9 +616,12 @@
 
     return `<div class="qp">
       <div class="qp-head">
-        <div>
-          <div class="qp-biz">${esc(q.biz || t('qBizPlaceholder'))}</div>
-          ${q.contact ? `<div class="qp-contact">${esc(q.contact)}</div>` : ''}
+        <div class="qp-ident">
+          ${q.logo ? `<img class="qp-logo" src="${esc(q.logo)}" alt="">` : ''}
+          <div>
+            <div class="qp-biz">${esc(q.biz || t('qBizPlaceholder'))}</div>
+            ${q.contact ? `<div class="qp-contact">${esc(q.contact)}</div>` : ''}
+          </div>
         </div>
         <div class="qp-doc">${esc(t('qTitle').toUpperCase())}</div>
       </div>
@@ -641,8 +644,10 @@
     .qp { background: #ffffff; color: #22242b; border-radius: 10px; padding: 34px 38px;
           font-family: "Segoe UI", -apple-system, Helvetica, Arial, sans-serif; font-size: 13px; }
     .qp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .qp-ident { display: flex; align-items: flex-start; gap: 14px; }
+    .qp-logo { height: 52px; max-width: 150px; object-fit: contain; }
     .qp-biz { font-family: Georgia, "Times New Roman", serif; font-size: 21px; font-weight: 700; }
-    .qp-contact { color: #6a7183; font-size: 11px; margin-top: 3px; }
+    .qp-contact { color: #6a7183; font-size: 11px; margin-top: 3px; white-space: pre-wrap; }
     .qp-doc { color: #9aa1b3; font-size: 12px; letter-spacing: 2.5px; font-weight: 600; }
     .qp-meta { color: #6a7183; font-size: 11px; margin: 14px 0 18px; border-top: 2px solid #22242b; padding-top: 10px; }
     .qp-specs { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
@@ -675,9 +680,17 @@
     const q = M.store.quote;
     const seg = (mode, key) =>
       `<button class="seg${q.mode === mode ? ' on' : ''}" data-qmode="${mode}">${esc(t(key))}</button>`;
+    // logo: caricato una volta, resta nello store come data URL
+    const logoRow = q.logo
+      ? `<div class="field"><span>${esc(t('qLogo'))}</span>
+          <div class="logorow"><img class="logothumb" src="${esc(q.logo)}" alt="">
+          <button class="x" data-act="quoteLogoDel" title="${esc(t('qLogoDel'))}">✕</button></div></div>`
+      : `<div class="field"><span>${esc(t('qLogo'))}</span>
+          <div><button class="btn small" data-act="quoteLogoPick">🖼 ${esc(t('qLogoPick'))}</button></div></div>`;
     const form = card(`
+      ${logoRow}
       <label class="field"><span>${esc(t('qBiz'))}</span><input type="text" data-quote="biz" value="${esc(q.biz)}"></label>
-      <label class="field"><span>${esc(t('qContact'))}</span><input type="text" data-quote="contact" value="${esc(q.contact)}"></label>
+      <label class="field"><span>${esc(t('qContact'))}</span><textarea rows="2" data-quote="contact">${esc(q.contact)}</textarea></label>
       <label class="field"><span>${esc(t('qClient'))}</span><input type="text" data-quote="client" value="${esc(M.quoteClient || '')}"></label>
       <div class="field"><span>${esc(t('qMargin'))}</span>
         <div class="row">
@@ -924,18 +937,19 @@
       : '';
 
     // confronto con un'altra stampante Bambu: solo su file con dati e con Bambu Studio presente
+    // (data-tip = etichetta immediata al passaggio del mouse, il title di sistema tarda)
     const cmp = f.analysis && M.bambu && compareTargets().length
-      ? `<button class="x" data-compare="${f.id}" title="${esc(t('cmpTitle'))}">⇄</button>`
+      ? `<button class="x tip" data-compare="${f.id}" data-tip="${esc(t('cmpTip'))}">⇄</button>`
       : '';
     // registro costi: salva i numeri di questo file com'è adesso (v1.3)
     const log = f.analysis
-      ? `<button class="x" data-log="${f.id}" title="${esc(t('histSave'))}">💾</button>`
+      ? `<button class="x tip" data-log="${f.id}" data-tip="${esc(t('histSave'))}">💾</button>`
       : '';
     return card(`<div class="frow">
         <span class="fname">📄 ${esc(f.name)}</span>
         <div class="fstats">${head}${more}</div>
         ${log}${cmp}
-        ${f.analysis ? `<button class="x" data-reslice="${f.id}" title="${esc(t('reslice'))}">⟳</button>` : ''}
+        ${f.analysis ? `<button class="x tip" data-reslice="${f.id}" data-tip="${esc(t('reslice'))}">⟳</button>` : ''}
         <button class="x" data-del="${f.id}">✕</button>
       </div>${thumbs}`, 'file');
   }
@@ -1552,6 +1566,20 @@
           return exportHistory();
         case 'quoteExport':
           return exportQuote();
+        case 'quoteLogoPick': {
+          const r = await api.pickQuoteLogo();
+          if (r && r.error) return toast(t('qLogoBig'));
+          if (typeof r === 'string' && r) {
+            M.store.quote.logo = r;
+            persist();
+            render();
+          }
+          return;
+        }
+        case 'quoteLogoDel':
+          M.store.quote.logo = '';
+          persist();
+          return render();
         case 'addPreset':
           return addPreset();
         case 'addBlank':

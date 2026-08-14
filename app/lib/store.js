@@ -175,8 +175,8 @@ function emptyState() {
     nozzle: 0.4,       // slicing integrato (v1.2): ugello scelto
     layerHeight: 0.2,  // e altezza layer
     history: [],       // registro costi (v1.3): stampe salvate, solo in locale
-    // preventivo per clienti (v1.3): intestazione e margine ricordati tra sessioni
-    quote: { biz: '', contact: '', mode: 'pct', pct: 30, flat: 10, notes: '', validity: 30, detail: true },
+    // preventivo per clienti (v1.3): intestazione, logo e margine ricordati tra sessioni
+    quote: { biz: '', contact: '', logo: '', mode: 'pct', pct: 30, flat: 10, notes: '', validity: 30, detail: true },
   };
 }
 

@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('api', {
   /* registro costi & preventivo (v1.3) */
   exportCSV: (name, text) => ipcRenderer.invoke('history:exportCSV', name, text),
   exportQuotePDF: (name, html) => ipcRenderer.invoke('quote:exportPDF', name, html),
+  pickQuoteLogo: () => ipcRenderer.invoke('quote:pickLogo'),
 
   /* eventi dal processo principale */
   onUnlocked: (cb) => ipcRenderer.on('unlocked', () => cb()),
