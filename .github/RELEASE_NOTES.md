@@ -1,24 +1,20 @@
 ## 🇮🇹 Novità
 
-**La stampante comanda lo slicer.** Selezionata una stampante Bambu (H2C, H2D, H2D Pro, H2S, X1C, P1S, A1), lo slicing integrato usa i **suoi profili veri**, letti dall'installazione di Bambu Studio e risolti automaticamente: letto, limiti e riposizionamento seguono la macchina scelta, non più un profilo fisso. Se Bambu Studio manca, si torna al profilo incluso come prima.
+**Confronto stampanti.** Sui file slicati il nuovo pulsante **⇄** rislica gli stessi piatti coi profili di un'altra stampante Bambu e mette i numeri fianco a fianco: tempo, grammi, kWh e ogni voce del costo reale, col totale più basso in verde e la frase «Con X spendi Y in meno». I piatti che non entrano nel letto della seconda macchina vengono dichiarati, non nascosti. Il lato «attuale» può essere anche una Snapmaker o Elegoo letta dall'export del suo slicer: il cross-marca vero passa da lì.
 
-**Ugello e layer a scelta.** Nel pannello File & Slicing scegli l'ugello (0.2–0.8 mm) e l'altezza layer: i profili di processo si adattano di conseguenza. Sui file già slicati il nuovo pulsante **⟳ Rislica** rifà i conti con il setup corrente.
+**Storico e registro costi.** Il pulsante **💾** salva la stampa nel registro: data, stampante, piatti, ore, grammi e costo scomposto. La sezione nuova mostra i **totali per mese** e l'elenco completo, con **export CSV** pronto per Excel e contabilità. I dati vivono solo sul tuo computer.
 
-**Snapmaker U1 ed Elegoo, senza finzioni.** Le stampanti con uno slicer proprio (Snapmaker Orca, ElegooSlicer) mostrano il pulsante **«Apri in …»**: il 3mf si apre direttamente lì, si slica, si esporta il «file del piatto slicato» e l'app lo legge al volo con i consumi veri. In listino arrivano Elegoo Centauri Carbon e Neptune 4 Pro.
+**Preventivo per clienti.** Il costo reale del progetto diventa un documento da mandare al cliente: **logo** caricabile, **intestazione multiriga** (indirizzo, P.IVA, contatti), margine in percentuale o importo fisso, validità, note, scomposizione produzione/margine facoltativa. L'**anteprima si aggiorna mentre scrivi** e il **PDF A4** esce identico, nelle 4 lingue dell'app.
 
-**PETG e TPU.** Il tipo di materiale di ogni slot del progetto guida la scelta del profilo filamento: PETG e TPU usano i profili dedicati della stampante risolta, con ripiego sul PLA dove mancano.
-
-**Debutto Linux.** Da questa versione l'app c'è anche per Linux: **AppImage** (qualsiasi distribuzione) e **.deb** (Debian/Ubuntu), con le stesse funzioni di Windows.
-
-**Ritocchi.** Le anteprime dei piatti slicati mostrano il tempo di stampa del piatto; sezione Stampanti con la colonna dello slicer di ogni macchina; compilazione da cartelle sincronizzate iCloud sistemata per chi costruisce l'app da sé.
+**Ritocchi.** I pulsanti-icona della scheda file (salva, confronta, rislica) dicono subito a cosa servono al passaggio del mouse.
 
 ### Pacchetti
 
 | Sistema | File |
 |---|---|
-| **Windows** | `3D-Print-Cost-Setup-1.2.0.exe` (installer) — oppure `3D-Print-Cost-Portable-1.2.0.exe` |
+| **Windows** | `3D-Print-Cost-Setup-1.3.0.exe` (installer) — oppure `3D-Print-Cost-Portable-1.3.0.exe` |
 | **macOS** | `3D-Print-Cost.dmg` — richiede macOS 26 su Apple Silicon |
-| **Linux** | `3D-Print-Cost-1.2.0.AppImage` — oppure `3D-Print-Cost-1.2.0.deb` |
+| **Linux** | `3D-Print-Cost-1.3.0.AppImage` — oppure `3D-Print-Cost-1.3.0.deb` |
 | **Browser** | `index.html` nel repository, versione ridotta senza slicing |
 
 I pacchetti non hanno una firma digitale a pagamento: al primo avvio i sistemi mostrano un avviso; le istruzioni per superarlo sono nel README.
@@ -31,25 +27,21 @@ Dalla 1.1.4 l'app segnala da sola le nuove versioni all'avvio. Chi usa la **1.0 
 
 ## 🇺🇸 What's new
 
-**The printer drives the slicer.** With a Bambu printer selected (H2C, H2D, H2D Pro, H2S, X1C, P1S, A1), in-app slicing uses its **real profiles**, read from your Bambu Studio installation and resolved automatically: bed, limits and repositioning follow the chosen machine instead of a fixed profile. If Bambu Studio is missing, the bundled profile is used as before.
+**Printer comparison.** On sliced files the new **⇄** button re-slices the same plates with another Bambu printer's profiles and puts the numbers side by side: time, grams, kWh and every real-cost item, with the cheaper total in green and the sentence "With X you spend Y less". Plates that don't fit the second machine's bed are declared, not hidden. The "current" side can also be a Snapmaker or Elegoo read from its slicer's export: true cross-brand comparison goes through there.
 
-**Nozzle and layer of your choice.** In the Files & Slicing panel pick the nozzle (0.2–0.8 mm) and layer height: process profiles adapt accordingly. On already-sliced files the new **⟳ Re-slice** button redoes the numbers with the current setup.
+**Cost history & log.** The **💾** button saves the print to the log: date, printer, plates, hours, grams and the cost breakdown. The new section shows **monthly totals** and the full list, with **CSV export** ready for Excel and bookkeeping. Data never leaves your computer.
 
-**Snapmaker U1 and Elegoo, no pretending.** Printers with their own slicer (Snapmaker Orca, ElegooSlicer) get an **"Open in …"** button: the 3mf opens right there, you slice, export the "plate sliced file" and the app reads it instantly with true usage. Elegoo Centauri Carbon and Neptune 4 Pro join the printer list.
+**Customer quotes.** The project's real cost becomes a document you can send to the customer: loadable **logo**, **multi-line letterhead** (address, VAT no., contacts), margin as a percent or fixed amount, validity, notes, optional production/margin breakdown. The **preview updates as you type** and the **A4 PDF** comes out identical, in all 4 app languages.
 
-**PETG and TPU.** Each slot's material type drives the filament profile choice: PETG and TPU use the resolved printer's dedicated profiles, falling back to PLA where missing.
-
-**Linux debut.** Starting with this version the app is also available for Linux: **AppImage** (any distro) and **.deb** (Debian/Ubuntu), with the same features as Windows.
-
-**Polish.** Sliced plate previews show the plate's print time; the Printers section gains a column with each machine's slicer; building the app from iCloud-synced folders fixed for self-builders.
+**Polish.** The file card's icon buttons (save, compare, re-slice) now say what they do the moment the mouse hovers them.
 
 ### Packages
 
 | System | File |
 |---|---|
-| **Windows** | `3D-Print-Cost-Setup-1.2.0.exe` (installer) — or `3D-Print-Cost-Portable-1.2.0.exe` |
+| **Windows** | `3D-Print-Cost-Setup-1.3.0.exe` (installer) — or `3D-Print-Cost-Portable-1.3.0.exe` |
 | **macOS** | `3D-Print-Cost.dmg` — requires macOS 26 on Apple Silicon |
-| **Linux** | `3D-Print-Cost-1.2.0.AppImage` — or `3D-Print-Cost-1.2.0.deb` |
+| **Linux** | `3D-Print-Cost-1.3.0.AppImage` — or `3D-Print-Cost-1.3.0.deb` |
 | **Browser** | `index.html` in the repository, lite version without slicing |
 
 The packages carry no paid code-signing certificate: systems show a warning on first launch; the README explains how to get past it.
