@@ -380,6 +380,43 @@ function registerIPC() {
     openExternal(url);
     return true;
   });
+
+  /** export PDF del preventivo (v1.3): l'HTML arriva pronto dal renderer e si
+      stampa da una finestra nascosta, così la pagina dell'app non c'entra nulla */
+  ipcMain.handle('quote:exportPDF', async (_e, name, html) => {
+    const r = await dialog.showSaveDialog(win, {
+      defaultPath: String(name || 'preventivo.pdf'),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    });
+    if (r.canceled || !r.filePath) return false;
+    const w = new BrowserWindow({ show: false, webPreferences: { sandbox: true } });
+    try {
+      await w.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(String(html)));
+      const pdf = await w.webContents.printToPDF({ pageSize: 'A4', printBackground: true });
+      fs.writeFileSync(r.filePath, pdf);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      w.destroy();
+    }
+  });
+
+  /** export CSV del registro costi (v1.3): il testo arriva pronto dal renderer */
+  ipcMain.handle('history:exportCSV', async (_e, name, text) => {
+    const r = await dialog.showSaveDialog(win, {
+      defaultPath: String(name || 'storico.csv'),
+      filters: [{ name: 'CSV', extensions: ['csv'] }],
+    });
+    if (r.canceled || !r.filePath) return false;
+    try {
+      // BOM: così Excel riconosce l'UTF-8 senza chiedere nulla
+      fs.writeFileSync(r.filePath, '\uFEFF' + String(text), 'utf8');
+      return true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 /* ---------- avvio ---------- */

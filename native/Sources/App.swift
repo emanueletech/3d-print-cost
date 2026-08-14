@@ -12,6 +12,8 @@ enum Lang: String, CaseIterable, Identifiable {
     var label: String { ["it":"Italiano","en":"English","es":"Español","fr":"Français"][rawValue]! }
     /// valuta di default per la lingua (IT/ES/FR = €, EN 🇺🇸 = $)
     var defaultCurrency: Currency { self == .en ? .usd : .eur }
+    /// locale per date e nomi dei mesi (storico costi)
+    var localeId: String { ["it":"it_IT","en":"en_US","es":"es_ES","fr":"fr_FR"][rawValue]! }
 }
 
 enum Loc {
@@ -83,6 +85,57 @@ enum Loc {
                       "en":"Plates not sliceable on %@: %@ — comparison covers the successful plates only.",
                       "es":"Placas no laminables con %@: %@ — comparación solo de las placas logradas.",
                       "fr":"Plateaux non découpables avec %@ : %@ — comparaison sur les seuls plateaux réussis."],
+        // storico & registro costi (v1.3)
+        "nHistory": ["it":"Storico costi","en":"Cost history","es":"Historial de costes","fr":"Historique des coûts"],
+        "sHistory": ["it":"Le stampe salvate restano qui: totali per mese e registro completo, esportabile in CSV. I dati vivono solo sul tuo Mac.",
+                     "en":"Saved prints live here: monthly totals and the full log, exportable as CSV. Data never leaves your Mac.",
+                     "es":"Las impresiones guardadas viven aquí: totales por mes y registro completo, exportable a CSV. Los datos no salen de tu Mac.",
+                     "fr":"Les impressions enregistrées vivent ici : totaux par mois et journal complet, exportable en CSV. Les données restent sur votre Mac."],
+        "histSave": ["it":"Salva nel registro costi","en":"Save to the cost log",
+                     "es":"Guardar en el registro de costes","fr":"Enregistrer dans le journal des coûts"],
+        "histSaveProj": ["it":"Salva il progetto nel registro","en":"Save project to the log",
+                         "es":"Guardar el proyecto en el registro","fr":"Enregistrer le projet dans le journal"],
+        "histSaved": ["it":"Salvato nel registro ✓","en":"Saved to the log ✓","es":"Guardado en el registro ✓","fr":"Enregistré dans le journal ✓"],
+        "histEmpty": ["it":"Registro vuoto. Salva una stampa dal pulsante sulla scheda del file, o tutto il progetto col pulsante qui sopra.",
+                      "en":"The log is empty. Save a print from the button on a file card, or the whole project with the button above.",
+                      "es":"Registro vacío. Guarda una impresión desde el botón de la tarjeta del archivo, o todo el proyecto con el botón de arriba.",
+                      "fr":"Journal vide. Enregistrez une impression depuis le bouton de la carte du fichier, ou tout le projet avec le bouton ci-dessus."],
+        "histExport": ["it":"Esporta CSV","en":"Export CSV","es":"Exportar CSV","fr":"Exporter CSV"],
+        "histExported": ["it":"Registro esportato ✓","en":"Log exported ✓","es":"Registro exportado ✓","fr":"Journal exporté ✓"],
+        "hMonth": ["it":"Mese","en":"Month","es":"Mes","fr":"Mois"],
+        "hPrints": ["it":"Stampe","en":"Prints","es":"Impresiones","fr":"Impressions"],
+        "hHours": ["it":"Ore","en":"Hours","es":"Horas","fr":"Heures"],
+        "thDate": ["it":"Data","en":"Date","es":"Fecha","fr":"Date"],
+        // preventivo per clienti (v1.3)
+        "nQuote": ["it":"Preventivo","en":"Quote","es":"Presupuesto","fr":"Devis"],
+        "sQuote": ["it":"Il costo reale del progetto caricato diventa un preventivo da mandare al cliente: margine, intestazione e note sono tuoi, il PDF esce pronto.",
+                   "en":"The loaded project's real cost becomes a quote you can send to the customer: margin, header and notes are yours, the PDF comes out ready.",
+                   "es":"El coste real del proyecto cargado se convierte en un presupuesto para el cliente: margen, encabezado y notas son tuyos, el PDF sale listo.",
+                   "fr":"Le coût réel du projet chargé devient un devis à envoyer au client : marge, en-tête et notes sont à vous, le PDF sort prêt."],
+        "qBiz": ["it":"Nome attività / firma","en":"Business name / signature","es":"Nombre del negocio / firma","fr":"Nom de l'activité / signature"],
+        "qBizPlaceholder": ["it":"La tua attività","en":"Your business","es":"Tu negocio","fr":"Votre activité"],
+        "qContact": ["it":"Contatti (email, telefono…)","en":"Contact details (email, phone…)","es":"Contacto (email, teléfono…)","fr":"Contact (email, téléphone…)"],
+        "qClient": ["it":"Cliente (facoltativo)","en":"Customer (optional)","es":"Cliente (opcional)","fr":"Client (facultatif)"],
+        "qMargin": ["it":"Margine","en":"Margin","es":"Margen","fr":"Marge"],
+        "qModePct": ["it":"Percentuale","en":"Percent","es":"Porcentaje","fr":"Pourcentage"],
+        "qModeFlat": ["it":"Importo fisso","en":"Fixed amount","es":"Importe fijo","fr":"Montant fixe"],
+        "qValidity": ["it":"Validità (giorni)","en":"Validity (days)","es":"Validez (días)","fr":"Validité (jours)"],
+        "qNotes": ["it":"Note in calce","en":"Footer notes","es":"Notas al pie","fr":"Notes de bas de page"],
+        "qDetail": ["it":"Mostra costo di produzione e margine","en":"Show production cost and margin",
+                    "es":"Mostrar coste de producción y margen","fr":"Afficher coût de production et marge"],
+        "qTitle": ["it":"Preventivo","en":"Quote","es":"Presupuesto","fr":"Devis"],
+        "qValidUntil": ["it":"Valido fino al %@","en":"Valid until %@","es":"Válido hasta el %@","fr":"Valable jusqu'au %@"],
+        "qFor": ["it":"Per","en":"For","es":"Para","fr":"Pour"],
+        "qProject": ["it":"Oggetto","en":"Subject","es":"Objeto","fr":"Objet"],
+        "qProduction": ["it":"Costo di produzione","en":"Production cost","es":"Coste de producción","fr":"Coût de production"],
+        "qMarginLine": ["it":"Lavorazione e margine","en":"Labor and margin","es":"Trabajo y margen","fr":"Main-d'œuvre et marge"],
+        "qTotal": ["it":"Prezzo finale","en":"Final price","es":"Precio final","fr":"Prix final"],
+        "qExport": ["it":"Esporta PDF","en":"Export PDF","es":"Exportar PDF","fr":"Exporter PDF"],
+        "qExported": ["it":"Preventivo esportato ✓","en":"Quote exported ✓","es":"Presupuesto exportado ✓","fr":"Devis exporté ✓"],
+        "qEmpty": ["it":"Carica e slica dei file: il preventivo nasce dal loro costo reale.",
+                   "en":"Load and slice some files: the quote is built from their real cost.",
+                   "es":"Carga y lamina archivos: el presupuesto nace de su coste real.",
+                   "fr":"Chargez et découpez des fichiers : le devis naît de leur coût réel."],
         "plateMoreHint": ["it":"I piatti spenti non sono ancora slicati: toccali per selezionarli, poi premi Slica.",
                           "en":"Dimmed plates aren't sliced yet: tap to select them, then hit Slice.",
                           "es":"Las placas apagadas aún no están laminadas: tócalas para seleccionarlas y pulsa Laminar.",
@@ -334,6 +387,8 @@ final class AppModel: ObservableObject {
         materials = s.materials; printersDB = s.printers; failurePct = s.failurePct; kwh = s.kwh
         nozzle = s.nozzle ?? 0.4
         layerHeight = s.layerHeight ?? 0.20
+        history = s.history ?? []
+        quote = s.quote ?? QuoteSettings()
         currency = Currency(rawValue: s.currency ?? "eur") ?? .eur
         eurRate = s.eurRate ?? currency.defaultRate
         Money.currency = currency; Money.rate = eurRate
@@ -368,7 +423,7 @@ final class AppModel: ObservableObject {
         guard !materials.isEmpty || !printersDB.isEmpty else { return }
         Store.save(StoreData(materials: materials, printers: printersDB, failurePct: failurePct, kwh: kwh,
                              currency: currency.rawValue, eurRate: eurRate, amazonTag: nil,
-                             nozzle: nozzle, layerHeight: layerHeight))
+                             nozzle: nozzle, layerHeight: layerHeight, history: history, quote: quote))
     }
     var selectedPrinter: PrinterProfile? { printersDB.first { $0.id == selPrinterID } ?? printersDB.first }
 
@@ -436,15 +491,16 @@ final class AppModel: ObservableObject {
     }
 
     enum Section: String, CaseIterable, Identifiable {
-        case overview, files, orient, colors, materials, printers, plates, setup
+        case overview, files, orient, colors, materials, printers, plates, history, quote, setup
         var id: String { rawValue }
-        var locKey: String { ["overview":"nOverview","files":"nFiles","orient":"nOrient","colors":"nColors","materials":"nMaterials","printers":"nPrinters","plates":"nPlates","setup":"nSetup"][rawValue]! }
+        var locKey: String { ["overview":"nOverview","files":"nFiles","orient":"nOrient","colors":"nColors","materials":"nMaterials","printers":"nPrinters","plates":"nPlates","history":"nHistory","quote":"nQuote","setup":"nSetup"][rawValue]! }
         var icon: String {
             switch self {
             case .overview: "square.grid.2x2.fill"; case .files: "doc.fill"; case .orient: "rotate.3d.fill"
             case .colors: "paintpalette.fill"
             case .materials: "cylinder.split.1x2.fill"; case .printers: "printer.fill"
-            case .plates: "puzzlepiece.fill"; case .setup: "gearshape.fill"
+            case .plates: "puzzlepiece.fill"; case .history: "book.closed.fill"
+            case .quote: "doc.text.fill"; case .setup: "gearshape.fill"
             }
         }
     }
@@ -726,6 +782,62 @@ final class AppModel: ObservableObject {
                                                bFailed: res.failed)
             }
         }
+    }
+
+    // MARK: - Storico & registro costi (v1.3)
+
+    @Published var history: [HistoryEntry] = [] { didSet { persist() } }
+
+    /// salva nel registro i piatti dati (costo con la stampante selezionata)
+    func logEntry(name: String, plates: [PlateInfo]) {
+        guard let p = selectedPrinter, !plates.isEmpty else { return }
+        let s = sideBreakdown(plates, printer: p)
+        history.insert(HistoryEntry(date: Date(), name: name, printer: p.name,
+                                    plates: s.plateCount, grams: s.grams, seconds: s.seconds,
+                                    material: s.cost.material, energy: s.cost.energy, wear: s.cost.wear,
+                                    setup: s.cost.setup, failure: s.cost.failure, total: s.cost.total),
+                       at: 0)
+        flash("histSaved")
+    }
+
+    /// un'unica voce per tutto il progetto caricato (tutti i file, piatti inclusi)
+    func logProject() {
+        let names = loaded.map { $0.name.replacingOccurrences(of: ".3mf", with: "") }
+        guard !names.isEmpty else { return }
+        let name = names.count <= 2 ? names.joined(separator: " + ") : "\(names[0]) +\(names.count - 1)"
+        logEntry(name: name, plates: includedPlates)
+    }
+
+    /// registro → CSV (separatore ;, decimali col punto, intestazione localizzata)
+    func historyCSV() -> String {
+        let head = [t("thDate"), t("thFile"), t("pName"), t("thPlates"), t("hHours"), t("thGrams"),
+                    t("cMaterial"), t("cEnergy"), t("cWear"), t("cSetup"), t("cFailure"), t("cTotal")]
+            .joined(separator: ";")
+        let iso = DateFormatter()
+        iso.dateFormat = "yyyy-MM-dd"
+        func cell(_ s: String) -> String { s.replacingOccurrences(of: ";", with: ",") }
+        let rows = history.map { e in
+            [iso.string(from: e.date), cell(e.name), cell(e.printer), String(e.plates),
+             String(format: "%.2f", e.seconds / 3600), String(Int(e.grams.rounded())),
+             String(format: "%.2f", e.material), String(format: "%.2f", e.energy),
+             String(format: "%.2f", e.wear), String(format: "%.2f", e.setup),
+             String(format: "%.2f", e.failure), String(format: "%.2f", e.total)]
+                .joined(separator: ";")
+        }
+        return ([head] + rows).joined(separator: "\n") + "\n"
+    }
+
+    // MARK: - Preventivo per clienti (v1.3)
+
+    @Published var quote = QuoteSettings() { didSet { persist() } }
+    /// nome del cliente: per-preventivo, non finisce nello store
+    @Published var quoteClient = ""
+
+    /// margine e prezzo finale a partire dal costo reale del progetto caricato
+    var quoteNumbers: (cost: Double, margin: Double, final: Double) {
+        let c = cost.total
+        let margin = quote.mode == "flat" ? quote.flat : c * quote.pct / 100
+        return (c, margin, c + margin)
     }
 
     // MARK: - Orientamento 3D (STL/OBJ/STEP)

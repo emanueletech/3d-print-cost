@@ -160,7 +160,7 @@ struct Sidebar: View {
             }.padding(.horizontal, 6).padding(.bottom, 12)
 
             // gruppo Progetto
-            navGroup(m.t("grpProject"), [.overview, .files, .orient, .colors, .plates])
+            navGroup(m.t("grpProject"), [.overview, .files, .orient, .colors, .plates, .history, .quote])
             Spacer().frame(height: 14)
             // gruppo Impostazioni (separato, stile iOS)
             navGroup(m.t("grpSettings"), [.materials, .printers, .setup])
@@ -235,6 +235,8 @@ struct Detail: View {
                 case .materials: MaterialsView()
                 case .printers: PrintersView()
                 case .plates: PlatesView()
+                case .history: HistoryView()
+                case .quote: QuoteView()
                 case .setup: SetupView()
                 }
             }
@@ -571,6 +573,11 @@ struct FileCard: View {
                             Button("\(m.t("slice")) (\(f.toSlice.count))") { m.slice(f) }
                                 .buttonStyle(.borderedProminent).controlSize(.small).tint(.orange)
                         }
+                        // registro costi: salva i numeri di questo file com'è adesso (v1.3)
+                        Button { m.logEntry(name: f.name.replacingOccurrences(of: ".3mf", with: ""),
+                                            plates: f.includedPlates) } label: {
+                            Image(systemName: "tray.and.arrow.down")
+                        }.buttonStyle(.plain).foregroundStyle(.secondary).help(m.t("histSave"))
                         // confronto con un'altra stampante Bambu (v1.3)
                         if !m.compareTargets.isEmpty {
                             Button { showCompare = true } label: { Image(systemName: "arrow.left.arrow.right") }
@@ -782,6 +789,298 @@ struct CompareSheet: View {
             Text(b).fontWeight(bold ? .bold : .regular).foregroundStyle(bWin ? Color.green : Color.primary)
         }
         .font(.system(size: 13)).monospacedDigit()
+    }
+}
+
+// MARK: - Storico & registro costi (v1.3)
+
+struct HistoryView: View {
+    @EnvironmentObject var m: AppModel
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(m.t("sHistory")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+            HStack(spacing: 10) {
+                Button("💾 \(m.t("histSaveProj"))") { m.logProject() }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+                    .disabled(m.loaded.isEmpty)
+                Button("⇩ \(m.t("histExport"))") { exportCSV() }
+                    .buttonStyle(.bordered).controlSize(.small)
+                    .disabled(m.history.isEmpty)
+                Spacer()
+            }
+            if m.history.isEmpty {
+                GlassCard { Text(m.t("histEmpty")).foregroundStyle(.secondary).font(.system(size: 13)).padding(18).frame(maxWidth: .infinity) }
+            } else {
+                monthsCard
+                entriesCard
+            }
+        }
+    }
+
+    /// totali per mese (chiave AAAA-MM, dal più recente)
+    var months: [(key: String, n: Int, seconds: Double, grams: Double, total: Double)] {
+        let keyFmt = DateFormatter(); keyFmt.dateFormat = "yyyy-MM"
+        var acc: [String: (n: Int, seconds: Double, grams: Double, total: Double)] = [:]
+        for e in m.history {
+            let k = keyFmt.string(from: e.date)
+            var v = acc[k] ?? (0, 0, 0, 0)
+            v.n += 1; v.seconds += e.seconds; v.grams += e.grams; v.total += e.total
+            acc[k] = v
+        }
+        return acc.map { (key: $0.key, n: $0.value.n, seconds: $0.value.seconds, grams: $0.value.grams, total: $0.value.total) }
+            .sorted { $0.key > $1.key }
+    }
+    func monthLabel(_ key: String) -> String {
+        let inFmt = DateFormatter(); inFmt.dateFormat = "yyyy-MM"
+        let outFmt = DateFormatter(); outFmt.locale = Locale(identifier: m.lang.localeId); outFmt.dateFormat = "LLLL yyyy"
+        guard let d = inFmt.date(from: key) else { return key }
+        return outFmt.string(from: d).capitalized
+    }
+    func dayLabel(_ d: Date) -> String {
+        let f = DateFormatter(); f.locale = Locale(identifier: m.lang.localeId)
+        f.dateStyle = .short; f.timeStyle = .none
+        return f.string(from: d)
+    }
+
+    var monthsCard: some View {
+        GlassCard(pad: 6) {
+            VStack(spacing: 0) {
+                HStack {
+                    Text(m.t("hMonth")).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(m.t("hPrints")).frame(width: 70, alignment: .trailing)
+                    Text(m.t("hHours")).frame(width: 80, alignment: .trailing)
+                    Text("kg").frame(width: 80, alignment: .trailing)
+                    Text(m.t("cTotal")).frame(width: 100, alignment: .trailing)
+                }.font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.8)
+                    .padding(.horizontal, 10).padding(.vertical, 9)
+                ForEach(months, id: \.key) { mo in
+                    HStack {
+                        Text(monthLabel(mo.key)).frame(maxWidth: .infinity, alignment: .leading)
+                        Text("\(mo.n)").frame(width: 70, alignment: .trailing)
+                        Text(String(format: "%.1f h", mo.seconds / 3600)).frame(width: 80, alignment: .trailing)
+                        Text(String(format: "%.2f", mo.grams / 1000)).frame(width: 80, alignment: .trailing)
+                        Text(eur(mo.total)).fontWeight(.semibold).foregroundStyle(.green).frame(width: 100, alignment: .trailing)
+                    }.font(.system(size: 13)).monospacedDigit().padding(.horizontal, 10).padding(.vertical, 9)
+                        .overlay(Rectangle().fill(.white.opacity(0.06)).frame(height: 1), alignment: .top)
+                }
+            }
+        }
+    }
+
+    var entriesCard: some View {
+        GlassCard(pad: 6) {
+            VStack(spacing: 0) {
+                HStack {
+                    Text(m.t("thDate")).frame(width: 82, alignment: .leading)
+                    Text(m.t("thFile")).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(m.t("pName")).frame(width: 140, alignment: .leading)
+                    Text(m.t("thPlates")).frame(width: 50, alignment: .trailing)
+                    Text(m.t("thTime")).frame(width: 70, alignment: .trailing)
+                    Text(m.t("thGrams")).frame(width: 70, alignment: .trailing)
+                    Text(m.t("cTotal")).frame(width: 90, alignment: .trailing)
+                    Text("").frame(width: 24)
+                }.font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary).tracking(0.8)
+                    .padding(.horizontal, 10).padding(.vertical, 9)
+                ForEach(m.history) { e in
+                    HStack {
+                        Text(dayLabel(e.date)).foregroundStyle(.secondary).frame(width: 82, alignment: .leading)
+                        Text(e.name).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                        Text(e.printer).foregroundStyle(.secondary).lineLimit(1).frame(width: 140, alignment: .leading)
+                        Text("\(e.plates)").frame(width: 50, alignment: .trailing)
+                        Text(hms(e.seconds)).frame(width: 70, alignment: .trailing)
+                        Text("\(Int(e.grams.rounded()))").frame(width: 70, alignment: .trailing)
+                        Text(eur(e.total)).fontWeight(.semibold).frame(width: 90, alignment: .trailing)
+                        Button { m.history.removeAll { $0.id == e.id } } label: {
+                            Image(systemName: "xmark.circle.fill")
+                        }.buttonStyle(.plain).foregroundStyle(.secondary).frame(width: 24)
+                    }.font(.system(size: 13)).monospacedDigit().padding(.horizontal, 10).padding(.vertical, 9)
+                        .overlay(Rectangle().fill(.white.opacity(0.06)).frame(height: 1), alignment: .top)
+                }
+            }
+        }
+    }
+
+    /// salvataggio CSV con NSSavePanel (BOM incluso: Excel riconosce l'UTF-8)
+    func exportCSV() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "storico-stampe.csv"
+        if let csvType = UTType(filenameExtension: "csv") { panel.allowedContentTypes = [csvType] }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let text = "\u{FEFF}" + m.historyCSV()
+        if (try? text.write(to: url, atomically: true, encoding: .utf8)) != nil {
+            m.flash("histExported")
+        }
+    }
+}
+
+// MARK: - Preventivo per clienti (v1.3)
+
+struct QuoteView: View {
+    @EnvironmentObject var m: AppModel
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(m.t("sQuote")).foregroundStyle(.secondary).font(.system(size: 13)).padding(.top, 6)
+            HStack(alignment: .top, spacing: 16) {
+                form.frame(width: 320)
+                if m.loaded.isEmpty {
+                    GlassCard { Text(m.t("qEmpty")).foregroundStyle(.secondary).font(.system(size: 13)).padding(18).frame(maxWidth: .infinity) }
+                } else {
+                    // anteprima 1:1 del PDF accanto al modulo
+                    QuotePaper(m: m)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .shadow(color: .black.opacity(0.45), radius: 22, y: 9)
+                }
+            }
+        }
+    }
+
+    var form: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 11) {
+                field(m.t("qBiz"), $m.quote.biz)
+                field(m.t("qContact"), $m.quote.contact)
+                field(m.t("qClient"), $m.quoteClient)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(m.t("qMargin").uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
+                    Picker("", selection: $m.quote.mode) {
+                        Text(m.t("qModePct")).tag("pct")
+                        Text(m.t("qModeFlat")).tag("flat")
+                    }.pickerStyle(.segmented).labelsHidden()
+                    HStack(spacing: 6) {
+                        if m.quote.mode == "flat" {
+                            TextField("", value: $m.quote.flat, format: .number).frame(width: 80)
+                            Text("€").foregroundStyle(.secondary)
+                        } else {
+                            TextField("", value: $m.quote.pct, format: .number).frame(width: 80)
+                            Text("%").foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(m.t("qValidity").uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
+                    TextField("", value: $m.quote.validity, format: .number).frame(width: 80)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(m.t("qNotes").uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
+                    TextEditor(text: $m.quote.notes)
+                        .font(.system(size: 12.5)).frame(height: 64)
+                        .scrollContentBackground(.hidden)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.07)))
+                }
+                Toggle(m.t("qDetail"), isOn: $m.quote.detail).font(.system(size: 12))
+                Button("🧾 \(m.t("qExport"))") { exportPDF() }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(m.loaded.isEmpty)
+            }
+        }
+    }
+
+    @ViewBuilder func field(_ label: String, _ text: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased()).font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary).tracking(0.8)
+            TextField("", text: text).textFieldStyle(.roundedBorder)
+        }
+    }
+
+    /// PDF A4 dal medesimo QuotePaper dell'anteprima (ImageRenderer → CGContext PDF)
+    @MainActor func exportPDF() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "\(m.t("qTitle").lowercased()).pdf"
+        if let t = UTType(filenameExtension: "pdf") { panel.allowedContentTypes = [t] }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let renderer = ImageRenderer(content: QuotePaper(m: m))
+        renderer.proposedSize = ProposedViewSize(width: 595, height: nil)
+        var done = false
+        renderer.render { size, draw in
+            var box = CGRect(x: 0, y: 0, width: 595, height: max(842, size.height))
+            guard let ctx = CGContext(url as CFURL, mediaBox: &box, nil) else { return }
+            ctx.beginPDFPage(nil)
+            ctx.translateBy(x: 0, y: box.height - size.height)   // contenuto in alto
+            draw(ctx)
+            ctx.endPDFPage()
+            ctx.closePDF()
+            done = true
+        }
+        if done { m.flash("qExported") }
+    }
+}
+
+/// Il foglio del preventivo: carta bianca, stessa resa a schermo e nel PDF.
+struct QuotePaper: View {
+    let m: AppModel
+    var body: some View {
+        let ink = Color(red: 0.13, green: 0.14, blue: 0.17)
+        let dim = Color(red: 0.42, green: 0.44, blue: 0.51)
+        let n = m.quoteNumbers
+        let q = m.quote
+        let until = Date().addingTimeInterval(Double(max(1, q.validity)) * 86400)
+        let names = m.loaded.map { $0.name.replacingOccurrences(of: ".3mf", with: "") }.joined(separator: ", ")
+
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(q.biz.isEmpty ? m.t("qBizPlaceholder") : q.biz)
+                        .font(.system(size: 20, weight: .bold, design: .serif))
+                    if !q.contact.isEmpty { Text(q.contact).font(.system(size: 10)).foregroundStyle(dim) }
+                }
+                Spacer()
+                Text(m.t("qTitle").uppercased()).font(.system(size: 11, weight: .semibold)).tracking(2.5).foregroundStyle(dim)
+            }
+            Rectangle().fill(ink).frame(height: 2).padding(.top, 14)
+            Text("\(m.t("thDate")): \(dateStr(Date())) · \(String(format: m.t("qValidUntil"), dateStr(until)))\(m.quoteClient.isEmpty ? "" : " · \(m.t("qFor")): \(m.quoteClient)")")
+                .font(.system(size: 10)).foregroundStyle(dim).padding(.vertical, 10)
+
+            VStack(spacing: 0) {
+                specRow(m.t("qProject"), names.isEmpty ? "—" : names, dim: dim)
+                specRow(m.t("thPlates"), "\(m.totalPlates)", dim: dim)
+                specRow(m.t("kTime"), hms(m.totalSeconds), dim: dim)
+                specRow(m.t("kMat"), "\(Int(m.totalGrams)) g", dim: dim)
+            }.padding(.bottom, 16)
+
+            if q.detail {
+                costLine(m.t("qProduction"), eur(n.cost))
+                costLine(m.t("qMarginLine"), eur(n.margin))
+            }
+            Rectangle().fill(ink).frame(height: 2).padding(.top, 10)
+            HStack(alignment: .firstTextBaseline) {
+                Text(m.t("qTotal")).font(.system(size: 15, weight: .bold))
+                Spacer()
+                Text(eur(n.final)).font(.system(size: 22, weight: .bold)).monospacedDigit()
+            }.padding(.top, 10)
+
+            if !q.notes.isEmpty {
+                Text(q.notes).font(.system(size: 10)).foregroundStyle(dim)
+                    .fixedSize(horizontal: false, vertical: true).padding(.top, 18)
+            }
+            Text("COSTO STAMPA 3D").font(.system(size: 8, weight: .semibold)).tracking(1.5)
+                .foregroundStyle(dim.opacity(0.55)).padding(.top, 24)
+        }
+        .padding(38)
+        .frame(width: 595, alignment: .leading)
+        .background(Color.white)
+        .foregroundStyle(ink)
+        .environment(\.colorScheme, .light)
+    }
+    func dateStr(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: m.lang.localeId)
+        f.dateStyle = .long; f.timeStyle = .none
+        return f.string(from: d)
+    }
+    @ViewBuilder func specRow(_ k: String, _ v: String, dim: Color) -> some View {
+        HStack(alignment: .top) {
+            Text(k).foregroundStyle(dim).frame(width: 190, alignment: .leading)
+            Text(v).fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.system(size: 11.5)).padding(.vertical, 6)
+        .overlay(Rectangle().fill(Color(red: 0.9, green: 0.91, blue: 0.93)).frame(height: 1), alignment: .bottom)
+    }
+    @ViewBuilder func costLine(_ k: String, _ v: String) -> some View {
+        HStack {
+            Text(k)
+            Spacer()
+            Text(v).fontWeight(.semibold).monospacedDigit()
+        }.font(.system(size: 12)).padding(.vertical, 5)
     }
 }
 

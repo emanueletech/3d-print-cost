@@ -38,6 +38,10 @@ contextBridge.exposeInMainWorld('api', {
 
   open: (url) => ipcRenderer.invoke('shell:open', url),
 
+  /* registro costi & preventivo (v1.3) */
+  exportCSV: (name, text) => ipcRenderer.invoke('history:exportCSV', name, text),
+  exportQuotePDF: (name, html) => ipcRenderer.invoke('quote:exportPDF', name, html),
+
   /* eventi dal processo principale */
   onUnlocked: (cb) => ipcRenderer.on('unlocked', () => cb()),
   onOpenFiles: (cb) => ipcRenderer.on('open-files', (_e, files) => cb(files)),

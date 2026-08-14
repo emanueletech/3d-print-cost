@@ -174,6 +174,9 @@ function emptyState() {
     selPrinter: null,
     nozzle: 0.4,       // slicing integrato (v1.2): ugello scelto
     layerHeight: 0.2,  // e altezza layer
+    history: [],       // registro costi (v1.3): stampe salvate, solo in locale
+    // preventivo per clienti (v1.3): intestazione e margine ricordati tra sessioni
+    quote: { biz: '', contact: '', mode: 'pct', pct: 30, flat: 10, notes: '', validity: 30, detail: true },
   };
 }
 
@@ -189,6 +192,8 @@ function load() {
   const s = { ...base, ...saved };
   if (!Array.isArray(s.materials) || !s.materials.length) s.materials = base.materials;
   if (!Array.isArray(s.printers) || !s.printers.length) s.printers = base.printers;
+  if (!Array.isArray(s.history)) s.history = [];
+  s.quote = { ...base.quote, ...(s.quote && typeof s.quote === 'object' ? s.quote : {}) };
 
   // migrazione non distruttiva: aggiunge le stampanti predefinite nuove mancanti
   const have = new Set(s.printers.map((p) => p.name));

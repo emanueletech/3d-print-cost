@@ -49,6 +49,8 @@
     { id: 'orient', key: 'nOrient', icon: '🧭', group: 'project' },
     { id: 'colors', key: 'nColors', icon: '🎨', group: 'project' },
     { id: 'plates', key: 'nPlates', icon: '🧩', group: 'project' },
+    { id: 'history', key: 'nHistory', icon: '📒', group: 'project' },
+    { id: 'quote', key: 'nQuote', icon: '🧾', group: 'project' },
     { id: 'materials', key: 'nMaterials', icon: '🧵', group: 'settings' },
     { id: 'printers', key: 'nPrinters', icon: '🖨', group: 'settings' },
     { id: 'setup', key: 'nSetup', icon: '⚙️', group: 'settings' },
@@ -89,6 +91,8 @@
     poses: [],
     chosenPose: null,
     supportThreshold: 45,
+    // preventivo (v1.3): il cliente è per-preventivo, non si salva nello store
+    quoteClient: '',
   };
 
   let viewer = null;
@@ -486,6 +490,215 @@
     document.body.appendChild(ov);
   }
 
+  /* ---------- storico & registro costi (v1.3) ---------- */
+
+  const LOCALES = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR' };
+  const locale = () => LOCALES[M.lang] || 'en-US';
+
+  /** salva nel registro i piatti dati (costo con la stampante selezionata) */
+  function logEntry(name, plates) {
+    if (!plates.length) return;
+    const p = selectedPrinter();
+    const b = sideBreakdown(plates, p);
+    M.store.history.unshift({
+      date: new Date().toISOString(),
+      name,
+      printer: p.name,
+      plates: b.plates,
+      grams: b.grams,
+      seconds: b.seconds,
+      material: b.material,
+      energy: b.energy,
+      wear: b.wear,
+      setup: b.setup,
+      failure: b.failure,
+      total: b.total,
+    });
+    persist();
+    toast(t('histSaved'));
+    render();
+  }
+
+  /** un'unica voce per tutto il progetto caricato (tutti i file, piatti inclusi) */
+  function logProject() {
+    const names = loadedFiles().map((f) => f.name.replace(/\.3mf$/i, ''));
+    if (!names.length) return;
+    const name = names.length <= 2 ? names.join(' + ') : `${names[0]} +${names.length - 1}`;
+    logEntry(name, includedPlates());
+  }
+
+  /** registro → CSV (separatore ;, decimali col punto, intestazione localizzata) */
+  function historyCSV() {
+    const head = [t('thDate'), t('thFile'), t('pName'), t('thPlates'), t('hHours'), t('thGrams'),
+      t('cMaterial'), t('cEnergy'), t('cWear'), t('cSetup'), t('cFailure'), t('cTotal')].join(';');
+    const cell = (s) => String(s).replace(/;/g, ',');
+    const rows = M.store.history.map((e) => [
+      e.date.slice(0, 10), cell(e.name), cell(e.printer), e.plates,
+      (e.seconds / 3600).toFixed(2), Math.round(e.grams),
+      e.material.toFixed(2), e.energy.toFixed(2), e.wear.toFixed(2),
+      e.setup.toFixed(2), e.failure.toFixed(2), e.total.toFixed(2),
+    ].join(';'));
+    return [head, ...rows].join('\n') + '\n';
+  }
+
+  async function exportHistory() {
+    if (!M.store.history.length) return;
+    const ok = await api.exportCSV(`${t('nHistory').toLowerCase().replace(/\s+/g, '-')}.csv`, historyCSV());
+    if (ok) toast(t('histExported'));
+  }
+
+  function viewHistory() {
+    const H = M.store.history;
+    const toolbar = `<div class="toolbar">
+      <button class="btn small primary" data-act="histSaveProj" ${loadedFiles().length ? '' : 'disabled'}>💾 ${esc(t('histSaveProj'))}</button>
+      <button class="btn small" data-act="histExport" ${H.length ? '' : 'disabled'}>⇩ ${esc(t('histExport'))}</button>
+    </div>`;
+    if (!H.length)
+      return `<div class="sub">${esc(t('sHistory'))}</div>${toolbar}${card(`<div class="empty">${esc(t('histEmpty'))}</div>`)}`;
+
+    // totali per mese (chiave AAAA-MM, dal più recente)
+    const months = new Map();
+    for (const e of H) {
+      const k = e.date.slice(0, 7);
+      const mo = months.get(k) || { n: 0, seconds: 0, grams: 0, total: 0 };
+      mo.n += 1; mo.seconds += e.seconds; mo.grams += e.grams; mo.total += e.total;
+      months.set(k, mo);
+    }
+    const monthName = (k) => {
+      const s = new Date(`${k}-01T12:00:00`).toLocaleDateString(locale(), { month: 'long', year: 'numeric' });
+      return s.charAt(0).toUpperCase() + s.slice(1);
+    };
+    const monthRows = [...months.entries()].sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([k, mo]) => `<tr><td>${esc(monthName(k))}</td><td class="n">${mo.n}</td>
+        <td class="n">${(mo.seconds / 3600).toFixed(1)} h</td>
+        <td class="n">${(mo.grams / 1000).toFixed(2)} kg</td>
+        <td class="n b green">${esc(eur(mo.total))}</td></tr>`)
+      .join('');
+
+    const dateFmt = (iso) =>
+      new Date(iso).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const entryRows = H.map((e, i) => `<tr>
+        <td class="dim">${esc(dateFmt(e.date))}</td><td>${esc(e.name)}</td><td class="dim">${esc(e.printer)}</td>
+        <td class="n">${e.plates}</td><td class="n">${esc(hms(e.seconds))}</td>
+        <td class="n">${Math.round(e.grams)}</td><td class="n b">${esc(eur(e.total))}</td>
+        <td class="n"><button class="x" data-histdel="${i}">✕</button></td></tr>`)
+      .join('');
+
+    return `<div class="sub">${esc(t('sHistory'))}</div>${toolbar}
+      ${card(`<table class="tbl"><thead><tr><th>${esc(t('hMonth'))}</th><th class="n">${esc(t('hPrints'))}</th>
+        <th class="n">${esc(t('thTime'))}</th><th class="n">${esc(t('thGrams'))}</th><th class="n">${esc(t('cTotal'))}</th></tr></thead>
+        <tbody>${monthRows}</tbody></table>`, 'pad0')}
+      ${card(`<table class="tbl"><thead><tr><th>${esc(t('thDate'))}</th><th>${esc(t('thFile'))}</th><th>${esc(t('pName'))}</th>
+        <th class="n">${esc(t('thPlates'))}</th><th class="n">${esc(t('thTime'))}</th><th class="n">${esc(t('thGrams'))}</th>
+        <th class="n">${esc(t('cTotal'))}</th><th></th></tr></thead>
+        <tbody>${entryRows}</tbody></table>`, 'pad0')}`;
+  }
+
+  /* ---------- preventivo per clienti (v1.3) ---------- */
+
+  /** margine e prezzo finale a partire dal costo reale del progetto caricato */
+  function quoteNumbers() {
+    const c = costBreakdown();
+    const q = M.store.quote;
+    const margin = q.mode === 'flat' ? num(q.flat) : (c.total * num(q.pct)) / 100;
+    return { cost: c.total, margin, final: c.total + margin };
+  }
+
+  /** corpo del preventivo: lo stesso markup fa da anteprima e da pagina PDF */
+  function quoteInner() {
+    const q = M.store.quote;
+    const n = quoteNumbers();
+    const names = loadedFiles().map((f) => f.name.replace(/\.3mf$/i, '')).join(', ');
+    const today = new Date().toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+    const until = new Date(Date.now() + Math.max(1, num(q.validity, 30)) * 86400e3)
+      .toLocaleDateString(locale(), { day: 'numeric', month: 'long', year: 'numeric' });
+    const spec = (k, v) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td></tr>`;
+
+    return `<div class="qp">
+      <div class="qp-head">
+        <div>
+          <div class="qp-biz">${esc(q.biz || t('qBizPlaceholder'))}</div>
+          ${q.contact ? `<div class="qp-contact">${esc(q.contact)}</div>` : ''}
+        </div>
+        <div class="qp-doc">${esc(t('qTitle').toUpperCase())}</div>
+      </div>
+      <div class="qp-meta">${esc(t('thDate'))}: ${esc(today)} · ${esc(fmt(t('qValidUntil'), until))}${M.quoteClient ? ` · ${esc(t('qFor'))}: ${esc(M.quoteClient)}` : ''}</div>
+      <table class="qp-specs">
+        ${spec(t('qProject'), names || '—')}
+        ${spec(t('thPlates'), String(totalPlates()))}
+        ${spec(t('kTime'), hms(totalSeconds()))}
+        ${spec(t('kMat'), `${Math.round(totalGrams())} g`)}
+      </table>
+      ${q.detail ? `<div class="qp-line"><span>${esc(t('qProduction'))}</span><b>${esc(eur(n.cost))}</b></div>
+      <div class="qp-line"><span>${esc(t('qMarginLine'))}</span><b>${esc(eur(n.margin))}</b></div>` : ''}
+      <div class="qp-total"><span>${esc(t('qTotal'))}</span><b>${esc(eur(n.final))}</b></div>
+      ${q.notes ? `<div class="qp-notes">${esc(q.notes)}</div>` : ''}
+      <div class="qp-foot">Costo Stampa 3D</div>
+    </div>`;
+  }
+
+  const QP_CSS = `
+    .qp { background: #ffffff; color: #22242b; border-radius: 10px; padding: 34px 38px;
+          font-family: "Segoe UI", -apple-system, Helvetica, Arial, sans-serif; font-size: 13px; }
+    .qp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .qp-biz { font-family: Georgia, "Times New Roman", serif; font-size: 21px; font-weight: 700; }
+    .qp-contact { color: #6a7183; font-size: 11px; margin-top: 3px; }
+    .qp-doc { color: #9aa1b3; font-size: 12px; letter-spacing: 2.5px; font-weight: 600; }
+    .qp-meta { color: #6a7183; font-size: 11px; margin: 14px 0 18px; border-top: 2px solid #22242b; padding-top: 10px; }
+    .qp-specs { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+    .qp-specs td { padding: 6px 0; border-bottom: 1px solid #e6e8ee; }
+    .qp-specs td:first-child { color: #6a7183; width: 40%; }
+    .qp-line { display: flex; justify-content: space-between; padding: 6px 0; }
+    .qp-line b { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .qp-total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;
+                padding-top: 12px; border-top: 2px solid #22242b; font-size: 16px; font-weight: 700; }
+    .qp-total b { font-size: 22px; font-variant-numeric: tabular-nums; }
+    .qp-notes { margin-top: 20px; color: #6a7183; font-size: 11px; white-space: pre-wrap; }
+    .qp-foot { margin-top: 26px; color: #c3c8d4; font-size: 9.5px; letter-spacing: 1px; text-transform: uppercase; }`;
+
+  /** pagina completa per la stampa in PDF (A4, sfondo bianco pieno) */
+  function quoteDocHTML() {
+    return `<!doctype html><html><head><meta charset="utf-8"><style>
+      html, body { margin: 0; padding: 0; background: #ffffff; }
+      ${QP_CSS}
+      .qp { border-radius: 0; padding: 52px 58px; }
+    </style></head><body>${quoteInner()}</body></html>`;
+  }
+
+  async function exportQuote() {
+    if (!loadedFiles().length) return;
+    const ok = await api.exportQuotePDF(`${t('qTitle').toLowerCase()}.pdf`, quoteDocHTML());
+    if (ok) toast(t('qExported'));
+  }
+
+  function viewQuote() {
+    const q = M.store.quote;
+    const seg = (mode, key) =>
+      `<button class="seg${q.mode === mode ? ' on' : ''}" data-qmode="${mode}">${esc(t(key))}</button>`;
+    const form = card(`
+      <label class="field"><span>${esc(t('qBiz'))}</span><input type="text" data-quote="biz" value="${esc(q.biz)}"></label>
+      <label class="field"><span>${esc(t('qContact'))}</span><input type="text" data-quote="contact" value="${esc(q.contact)}"></label>
+      <label class="field"><span>${esc(t('qClient'))}</span><input type="text" data-quote="client" value="${esc(M.quoteClient || '')}"></label>
+      <div class="field"><span>${esc(t('qMargin'))}</span>
+        <div class="row">
+          <div class="segbar">${seg('pct', 'qModePct')}${seg('flat', 'qModeFlat')}</div>
+          ${q.mode === 'flat'
+            ? `<input type="number" step="1" class="w80" data-quote="flat" data-num="1" value="${esc(q.flat)}"> €`
+            : `<input type="number" step="1" class="w80" data-quote="pct" data-num="1" value="${esc(q.pct)}"> %`}
+        </div></div>
+      <label class="field"><span>${esc(t('qValidity'))}</span><input type="number" step="1" class="w80" data-quote="validity" data-num="1" value="${esc(q.validity)}"></label>
+      <label class="field"><span>${esc(t('qNotes'))}</span><textarea rows="3" data-quote="notes">${esc(q.notes)}</textarea></label>
+      <label class="check"><input type="checkbox" data-qdetail ${q.detail ? 'checked' : ''}> ${esc(t('qDetail'))}</label>
+      <button class="btn primary" data-act="quoteExport" ${loadedFiles().length ? '' : 'disabled'}>🧾 ${esc(t('qExport'))}</button>`);
+
+    const preview = loadedFiles().length
+      ? `<div id="qprev"><style>${QP_CSS}</style>${quoteInner()}</div>`
+      : card(`<div class="empty">${esc(t('qEmpty'))}</div>`);
+
+    return `<div class="sub">${esc(t('sQuote'))}</div>
+      <div class="grid2 gap quotegrid">${form}${preview}</div>`;
+  }
+
   /* ---------- viste ---------- */
 
   function card(inner, cls = '', attrs = '') {
@@ -714,10 +927,14 @@
     const cmp = f.analysis && M.bambu && compareTargets().length
       ? `<button class="x" data-compare="${f.id}" title="${esc(t('cmpTitle'))}">⇄</button>`
       : '';
+    // registro costi: salva i numeri di questo file com'è adesso (v1.3)
+    const log = f.analysis
+      ? `<button class="x" data-log="${f.id}" title="${esc(t('histSave'))}">💾</button>`
+      : '';
     return card(`<div class="frow">
         <span class="fname">📄 ${esc(f.name)}</span>
         <div class="fstats">${head}${more}</div>
-        ${cmp}
+        ${log}${cmp}
         ${f.analysis ? `<button class="x" data-reslice="${f.id}" title="${esc(t('reslice'))}">⟳</button>` : ''}
         <button class="x" data-del="${f.id}">✕</button>
       </div>${thumbs}`, 'file');
@@ -1008,6 +1225,8 @@
     materials: viewMaterials,
     printers: viewPrinters,
     plates: viewPlates,
+    history: viewHistory,
+    quote: viewQuote,
     setup: viewSetup,
   };
 
@@ -1183,6 +1402,22 @@
         return f && showComparePicker(f);
       }
 
+      const log = hit('data-log');
+      if (log) {
+        const f = M.files.find((x) => x.id === +log.getAttribute('data-log'));
+        return f && f.analysis && logEntry(
+          f.name.replace(/\.3mf$/i, ''),
+          f.analysis.plates.filter((p) => !f.excluded.has(p.index))
+        );
+      }
+
+      const hdel = hit('data-histdel');
+      if (hdel) {
+        M.store.history.splice(+hdel.getAttribute('data-histdel'), 1);
+        persist();
+        return render();
+      }
+
       const opin = hit('data-openin');
       if (opin) {
         const f = M.files.find((x) => x.id === +opin.getAttribute('data-openin'));
@@ -1251,6 +1486,13 @@
         return render();
       }
 
+      const qmode = hit('data-qmode');
+      if (qmode) {
+        M.store.quote.mode = qmode.getAttribute('data-qmode');
+        persist();
+        return render();
+      }
+
       const buy = hit('data-buy');
       if (buy) {
         const m = M.store.materials[+buy.getAttribute('data-buy')];
@@ -1304,6 +1546,12 @@
         }
         case 'locateBambu':
           return locateBambu();
+        case 'histSaveProj':
+          return logProject();
+        case 'histExport':
+          return exportHistory();
+        case 'quoteExport':
+          return exportQuote();
         case 'addPreset':
           return addPreset();
         case 'addBlank':
@@ -1343,6 +1591,19 @@
     // campi di testo/numero: aggiornano il modello senza ridisegnare (non si perde il fuoco)
     document.addEventListener('input', (e) => {
       const el = e.target;
+
+      // campi del preventivo: si salvano e aggiornano l'anteprima senza rifare la pagina
+      const qf = el.getAttribute('data-quote');
+      if (qf) {
+        if (qf === 'client') M.quoteClient = el.value;
+        else {
+          M.store.quote[qf] = el.dataset.num ? num(el.value) : el.value;
+          persist();
+        }
+        const prev = $('#qprev');
+        if (prev) prev.innerHTML = `<style>${QP_CSS}</style>` + quoteInner();
+        return;
+      }
 
       const store = el.getAttribute('data-store');
       if (store) {
@@ -1398,6 +1659,15 @@
 
     document.addEventListener('change', (e) => {
       const el = e.target;
+
+      // scomposizione visibile nel preventivo (v1.3)
+      if (el.hasAttribute('data-qdetail')) {
+        M.store.quote.detail = el.checked;
+        persist();
+        const prev = $('#qprev');
+        if (prev) prev.innerHTML = `<style>${QP_CSS}</style>` + quoteInner();
+        return;
+      }
 
       // selettore ugello/layer dello slicing integrato (v1.2)
       const slcfg = el.getAttribute('data-slcfg');

@@ -238,6 +238,32 @@ check('i preset materiali coprono tutte le marche', () => {
   const brands = new Set(store.presets().map((p) => p.brand));
   assert.deepStrictEqual([...brands].sort(), ['Bambu Lab', 'Generico', 'eSun']);
 });
+check('registro costi: nasce vuoto e sopravvive a uno store vecchio', () => {
+  assert.deepStrictEqual(store.emptyState().history, []);
+  // store salvato prima della v1.3, senza campo history → reintegrato vuoto
+  const s = store.load();
+  delete s.history;
+  store.save(s);
+  assert.deepStrictEqual(store.load().history, []);
+  // una voce salvata resta
+  const s2 = store.load();
+  s2.history.unshift({ date: '2026-08-14T10:00:00Z', name: 'test', printer: 'X', plates: 1, grams: 10, seconds: 60, material: 0.2, energy: 0.01, wear: 0, setup: 0.15, failure: 0, total: 0.36 });
+  store.save(s2);
+  assert.strictEqual(store.load().history.length, 1);
+});
+check('preventivo: default sensati e campi nuovi reintegrati', () => {
+  const q = store.emptyState().quote;
+  assert.strictEqual(q.mode, 'pct');
+  assert.strictEqual(q.pct, 30);
+  // store vecchio con un quote parziale → i campi mancanti tornano dai default
+  const s = store.load();
+  s.quote = { biz: 'Officina 3D' };
+  store.save(s);
+  const back = store.load().quote;
+  assert.strictEqual(back.biz, 'Officina 3D');
+  assert.strictEqual(back.validity, 30);
+  assert.strictEqual(back.detail, true);
+});
 
 /* ---------- mesh & pose ---------- */
 

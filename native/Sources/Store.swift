@@ -138,6 +138,36 @@ struct PrinterProfile: Identifiable, Codable, Hashable {
     var slicing: SlicingSpec? = nil   // nil = nessuno slicing dedicato (voce generica)
 }
 
+/// Impostazioni del preventivo per clienti (v1.3): intestazione e margine
+/// ricordati tra sessioni. Il nome del cliente invece è per-preventivo.
+struct QuoteSettings: Codable, Hashable {
+    var biz = ""
+    var contact = ""
+    var mode = "pct"        // "pct" | "flat"
+    var pct: Double = 30
+    var flat: Double = 10
+    var notes = ""
+    var validity: Int = 30  // giorni
+    var detail = true       // mostra costo di produzione e margine
+}
+
+/// Una stampa salvata nel registro costi (v1.3). Vive solo nello store locale.
+struct HistoryEntry: Identifiable, Codable, Hashable {
+    var id = UUID()
+    var date: Date
+    var name: String        // file o progetto
+    var printer: String
+    var plates: Int
+    var grams: Double
+    var seconds: Double
+    var material: Double    // voci di costo già calcolate al salvataggio:
+    var energy: Double      // il registro fotografa la stampa, non la ricalcola
+    var wear: Double
+    var setup: Double
+    var failure: Double
+    var total: Double
+}
+
 // Costo di stampa scomposto (vista "maker")
 struct CostBreakdown {
     var material: Double = 0     // materiale consumato (g × €/kg)
@@ -162,6 +192,8 @@ struct StoreData: Codable {
     var amazonTag: String?    // tag affiliato Amazon.it dell'utente
     var nozzle: Double?       // ugello scelto per lo slicing integrato (default 0.4)
     var layerHeight: Double?  // altezza layer scelta (default 0.20)
+    var history: [HistoryEntry]? = nil  // registro costi (v1.3)
+    var quote: QuoteSettings? = nil     // preventivo per clienti (v1.3)
 }
 
 enum Store {
