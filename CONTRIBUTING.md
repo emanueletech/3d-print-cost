@@ -107,6 +107,6 @@ App creata da **Emanuele** — se ti è utile, un follow è il modo migliore per
 | | |
 |---|---|
 | 🐙 GitHub | [@emanueletech](https://github.com/emanueletech) |
-| 𝕏 X | [@emanuele_tech](https://x.com/emanuele_tech) |
+| 𝕏 X | [@SkorpionBot](https://x.com/SkorpionBot) |
 | 📷 Instagram | [@emanuele_tech](https://www.instagram.com/emanuele_tech) |
 | 🧊 MakerWorld | [@Emanuele_tech](https://makerworld.com/en/@Emanuele_tech) |
