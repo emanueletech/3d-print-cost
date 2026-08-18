@@ -249,6 +249,20 @@ function bambuFilamentFor(kind, r, tmp) {
       `Bambu TPU 95A @BBL ${r.code}${r.sfx}`, `Bambu TPU 95A @BBL ${r.code}`,
       'Bambu TPU 95A HF @base', 'Generic TPU @base', 'Generic TPU',
     ],
+    // materiali tecnici (v1.3.x): stessa scaletta — profilo Bambu della
+    // stampante, poi @base, poi il generico
+    ABS: [
+      `Bambu ABS @BBL ${r.code}${r.sfx}`, `Bambu ABS @BBL ${r.code}`,
+      'Bambu ABS @base', 'Generic ABS @base', 'Generic ABS',
+    ],
+    ASA: [
+      `Bambu ASA @BBL ${r.code}${r.sfx}`, `Bambu ASA @BBL ${r.code}`,
+      'Bambu ASA @base', 'Generic ASA @base', 'Generic ASA',
+    ],
+    PC: [
+      `Bambu PC @BBL ${r.code}${r.sfx}`, `Bambu PC @BBL ${r.code}`,
+      'Bambu PC @base', 'Generic PC @base', 'Generic PC',
+    ],
   };
   const names = CAND[kind];
   if (!names) return null;
@@ -425,4 +439,4 @@ async function stepToSTL(file, { bambuPath } = {}) {
   return path.join(outdir, stl); // ripulito dal chiamante
 }
 
-module.exports = { findBambu, slice, sliceRaw, stepToSTL, cleanup, flattenPreset, bambuVendorDir };
+module.exports = { findBambu, slice, sliceRaw, stepToSTL, cleanup, flattenPreset, bambuVendorDir, bambuFilamentFor };

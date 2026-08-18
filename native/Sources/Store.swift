@@ -296,7 +296,7 @@ enum Store {
             .init(brand:"eSun", type:"ABS+", colorName:"Nero", hex:"#1A1A1A", costPerKg:20.99, density:1.06),
         ]
         // Generico per tipo di materiale (densità corrette, prezzo indicativo)
-        for (t, d) in [("PLA",1.24),("PLA Matte",1.24),("PETG",1.27),("ABS",1.04),("ASA",1.07),("TPU 95A",1.21),("Nylon PA",1.14)] {
+        for (t, d) in [("PLA",1.24),("PLA Matte",1.24),("PETG",1.27),("ABS",1.04),("ASA",1.07),("PC",1.2),("TPU 95A",1.21),("Nylon PA",1.14)] {
             out.append(.init(brand:"Generico", type:t, colorName:"—", hex:"#8E9089", costPerKg:20.0, density:d))
         }
         return out

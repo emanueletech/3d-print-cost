@@ -137,7 +137,7 @@ function presets() {
 
   for (const [type, density] of [
     ['PLA', 1.24], ['PLA Matte', 1.24], ['PETG', 1.27], ['ABS', 1.04],
-    ['ASA', 1.07], ['TPU 95A', 1.21], ['Nylon PA', 1.14],
+    ['ASA', 1.07], ['PC', 1.2], ['TPU 95A', 1.21], ['Nylon PA', 1.14],
   ]) push('Generico', type, '—', '#8E9089', 20.0, density);
 
   return out;

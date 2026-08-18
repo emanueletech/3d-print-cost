@@ -144,6 +144,21 @@ check('anteprime dei piatti in ordine', () => {
   assert.strictEqual(t.length, 2);
   assert.ok(t[0].startsWith('data:image/png;base64,'));
 });
+check('lo slot non-PLA porta il suo materiale vero nei costi', () => {
+  // progetto con slot 2 in ABS: l'etichetta tipo deve dire ABS, non PLA Basic
+  const abs3mf = path.join(tmp, 'con-abs.3mf');
+  zip.write(abs3mf, [
+    { name: '3D/3dmodel.model', data: Buffer.from(MODEL_3D) },
+    { name: 'Metadata/project_settings.config', data: Buffer.from(JSON.stringify({
+      filament_colour: ['#FFFFFF', '#000000'],
+      filament_settings_id: ['Bambu PLA Matte @BBL H2C', 'Bambu ABS @BBL H2C'],
+      filament_type: ['PLA', 'ABS'],
+    })) },
+  ]);
+  const p = threemf.parseProject(abs3mf);
+  assert.deepStrictEqual(p.slotKinds, ['PLA', 'ABS']);
+  assert.deepStrictEqual(p.slotTypes, ['PLA Matte', 'ABS']);
+});
 
 /* ---------- rimappaggio griglia (ex remap.py) ---------- */
 
@@ -365,6 +380,24 @@ check('catena inherits interrotta → null, senza eccezioni', () => {
   fs.writeFileSync(path.join(dir, 'orfano.json'), JSON.stringify({ name: 'orfano', inherits: 'inesistente' }));
   assert.strictEqual(slicer.flattenPreset(dir, 'orfano', tmp), null);
   assert.strictEqual(slicer.flattenPreset(dir, 'mai-esistito', tmp), null);
+});
+check('profili filamento per tipo: ABS/ASA/PC risolti, il dedicato vince sul generico', () => {
+  // albero profili finto: per ABS c'è il profilo della stampante, per ASA solo il generico
+  const root = path.join(tmp, 'bbl-fake');
+  const fdir = path.join(root, 'filament');
+  fs.mkdirSync(fdir, { recursive: true });
+  fs.writeFileSync(path.join(fdir, 'Bambu ABS @BBL H2C.json'), JSON.stringify({ name: 'Bambu ABS @BBL H2C' }));
+  fs.writeFileSync(path.join(fdir, 'Generic ABS @base.json'), JSON.stringify({ name: 'Generic ABS @base' }));
+  fs.writeFileSync(path.join(fdir, 'Generic ASA @base.json'), JSON.stringify({ name: 'Generic ASA @base' }));
+  const r = { code: 'H2C', sfx: '', root };
+  const abs = slicer.bambuFilamentFor('ABS', r, tmp);
+  assert.ok(abs, 'ABS risolto');
+  assert.strictEqual(JSON.parse(fs.readFileSync(abs, 'utf8')).name, 'Bambu ABS @BBL H2C', 'il profilo della stampante vince');
+  const asa = slicer.bambuFilamentFor('ASA', r, tmp);
+  assert.ok(asa, 'ASA risolto dal generico');
+  assert.strictEqual(JSON.parse(fs.readFileSync(asa, 'utf8')).name, 'Generic ASA @base');
+  assert.strictEqual(slicer.bambuFilamentFor('PC', r, tmp), null, 'PC senza profili → null, senza eccezioni');
+  assert.strictEqual(slicer.bambuFilamentFor('LEGNO', r, tmp), null, 'tipo sconosciuto → null');
 });
 check('il rimappato segue il letto della macchina di destinazione', () => {
   // macchina finta 256×256 senza doppio ugello: offset zero, niente bande

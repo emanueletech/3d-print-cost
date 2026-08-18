@@ -25,11 +25,15 @@ function parseProject(file) {
     try {
       const cfg = JSON.parse(psRaw.toString('utf8'));
       slotColors = (cfg.filament_colour || []).map((c) => String(c).toUpperCase());
-      slotTypes = (cfg.filament_settings_id || []).map((s) =>
-        /matte/i.test(String(s)) ? 'PLA Matte' : 'PLA Basic'
-      );
-      // tipo materiale per slot (PLA/PETG/TPU…): guida la scelta dei profili (v1.2 M5)
+      // tipo materiale per slot (PLA/PETG/ABS…): guida la scelta dei profili (v1.2 M5)
       slotKinds = (cfg.filament_type || []).map((s) => String(s).toUpperCase());
+      // etichetta per i costi: i non-PLA usano il loro materiale vero, così il
+      // €/kg viene dal database giusto (ABS con l'ABS, non col PLA)
+      slotTypes = (cfg.filament_settings_id || []).map((s, i) => {
+        const kind = slotKinds[i] || 'PLA';
+        if (kind && kind !== 'PLA') return kind === 'TPU' ? 'TPU 95A' : kind;
+        return /matte/i.test(String(s)) ? 'PLA Matte' : 'PLA Basic';
+      });
       printer = cfg.printer_model || '';
     } catch {
       /* project_settings illeggibile: si prosegue con i dati del solo slice_info */

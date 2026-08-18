@@ -141,9 +141,16 @@ enum Slicer {
            let data = ps.data(using: .utf8),
            let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             colors = (obj["filament_colour"] as? [String] ?? []).map { $0.uppercased() }
-            types = (obj["filament_settings_id"] as? [String] ?? []).map { $0.lowercased().contains("matte") ? "PLA Matte" : "PLA Basic" }
-            // tipo materiale per slot (PLA/PETG/TPU…): guida la scelta dei profili (v1.2 M5)
+            // tipo materiale per slot (PLA/PETG/ABS…): guida la scelta dei profili (v1.2 M5)
             kinds = (obj["filament_type"] as? [String] ?? []).map { $0.uppercased() }
+            // etichetta per i costi: i non-PLA usano il loro materiale vero, così il
+            // €/kg viene dal database giusto (ABS con l'ABS, non col PLA)
+            let ids = obj["filament_settings_id"] as? [String] ?? []
+            types = ids.enumerated().map { (i, s) in
+                let kind = i < kinds.count ? kinds[i] : "PLA"
+                if kind != "PLA" && !kind.isEmpty { return kind == "TPU" ? "TPU 95A" : kind }
+                return s.lowercased().contains("matte") ? "PLA Matte" : "PLA Basic"
+            }
         }
         if let ms = unzipEntry(file, "Metadata/model_settings.config") {
             for m in matches("<object id=\"(\\d+)\">(.*?)</object>", ms) {
@@ -365,6 +372,17 @@ enum Slicer {
             cands = ["Bambu TPU 95A HF @BBL \(r.code)\(r.sfx)", "Bambu TPU 95A HF @BBL \(r.code)",
                      "Bambu TPU 95A @BBL \(r.code)\(r.sfx)", "Bambu TPU 95A @BBL \(r.code)",
                      "Bambu TPU 95A HF @base", "Generic TPU @base", "Generic TPU"]
+        // materiali tecnici (v1.3.x): stessa scaletta — profilo Bambu della
+        // stampante, poi @base, poi il generico
+        case "ABS":
+            cands = ["Bambu ABS @BBL \(r.code)\(r.sfx)", "Bambu ABS @BBL \(r.code)",
+                     "Bambu ABS @base", "Generic ABS @base", "Generic ABS"]
+        case "ASA":
+            cands = ["Bambu ASA @BBL \(r.code)\(r.sfx)", "Bambu ASA @BBL \(r.code)",
+                     "Bambu ASA @base", "Generic ASA @base", "Generic ASA"]
+        case "PC":
+            cands = ["Bambu PC @BBL \(r.code)\(r.sfx)", "Bambu PC @BBL \(r.code)",
+                     "Bambu PC @base", "Generic PC @base", "Generic PC"]
         default: return nil
         }
         let dir = r.root + "/filament"
